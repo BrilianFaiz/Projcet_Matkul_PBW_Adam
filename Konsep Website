@@ -1,0 +1,29 @@
+# PROBLEM
+Dalam operasional kafe konvensional atau yang menggunakan QRIS statis (stiker), sering muncul kendala berikut:
+1. Antrean Memanjang: Proses pemesanan di kasir seringkali lambat karena pelanggan baru memilih menu saat di depan meja kasir.
+2. Kesalahan Input Nominal: Pada QRIS statis, pelanggan harus memasukkan angka secara manual, yang sering menyebabkan kesalahan input (kurang atau lebih bayar).
+3. Verifikasi Manual: Kasir harus mengecek mutasi bank atau melihat bukti transfer di HP pelanggan secara manual, yang memperlambat alur pelayanan.
+4. Data Tidak Sinkron: Pencatatan pesanan di kertas/sistem terpisah seringkali tidak cocok dengan uang yang masuk di rekening atau laci kasir.
+
+# TUJUAN
+Adapun tujuan yang ingin dicapai dari pengembangan sistem ini adalah:
+1. Digitalisasi Pemesanan: Menciptakan platform website yang memudahkan pelanggan memesan menu tanpa harus mengantre di kasir.
+2. Otomasi Pembayaran: Menerapkan sistem QRIS Dinamis untuk meminimalisir kesalahan nominal dan mempercepat verifikasi transaksi.
+3. Sinkronisasi Data: Membangun aplikasi kasir yang mampu menarik data pesanan secara otomatis (via scan barcode) dan mencetak struk secara instan.
+4. Meningkatkan Efisiensi: Mempercepat perputaran pelanggan (table turnover) dengan alur pemesanan dan pembayaran yang lebih ringkas.
+
+# MANFAAT
+A. Bagi Pemilik Kafe (Owner)
+1. Akurasi Keuangan: Laporan penjualan di website pasti cocok dengan uang yang masuk karena sistem QRIS mengunci nominal secara otomatis.
+2. Efisiensi SDM: Mengurangi beban kerja kasir sehingga staf bisa lebih fokus pada pelayanan atau penyajian makanan.
+3. Branding Modern: Meningkatkan citra kafe sebagai tempat yang modern, canggih, dan mengikuti perkembangan teknologi digital.
+
+B. Bagi Pelanggan (Customer)
+1. Kenyamanan Maksimal: Pelanggan bisa melihat menu dan harga dengan tenang di meja masing-masing tanpa tekanan antrean.
+2. Keamanan & Kecepatan: Pembayaran lebih aman dan cepat karena tidak perlu repot mengetik angka nominal di aplikasi bank/e-wallet.
+3. Kepastian Status: Pelanggan langsung mendapatkan konfirmasi di layar HP mereka begitu pembayaran berhasil dideteksi sistem.
+
+C. Bagi Operasional (Kasir & Dapur)
+1. Minimalisir Error: Kasir tidak perlu input ulang menu ke sistem karena data sudah dikirim langsung oleh pelanggan dari website.
+2. Notifikasi Real-time: Dapur atau kasir mendapatkan notifikasi suara/visual secara instan setiap kali ada pesanan baru atau pembayaran lunas.
+3. Kemudahan Dokumentasi: Fitur cetak struk otomatis memastikan setiap pesanan terdokumentasi dengan baik sebagai bukti transaksi fisik.
