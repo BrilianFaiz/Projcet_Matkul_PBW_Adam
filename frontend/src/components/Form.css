@@ -1,0 +1,148 @@
+.wms-form-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 32px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+
+.wms-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.wms-form-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--yellow);
+}
+
+.wms-form-header-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+}
+
+.wms-form {
+  padding: 20px;
+}
+
+.wms-form-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 1024px) {
+  .wms-form-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .wms-form-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.wms-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wms-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.wms-input,
+.wms-select {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--text-h);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  width: 100%;
+}
+
+.wms-input:focus,
+.wms-select:focus {
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 2px var(--yellow-bg);
+}
+
+.wms-input::placeholder { color: var(--text-dim); }
+
+.wms-input-green {
+  border-color: rgba(61, 214, 140, 0.3);
+  color: var(--green);
+}
+.wms-input-green:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-bg);
+}
+
+.wms-input-red {
+  border-color: rgba(240, 90, 90, 0.3);
+  color: var(--red);
+}
+.wms-input-red:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red-bg);
+}
+
+.wms-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) hue-rotate(0deg) saturate(2);
+  cursor: pointer;
+}
+
+.wms-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5a78' stroke-width='2' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+.wms-select option {
+  background: var(--bg2);
+  color: var(--text-h);
+}
+
+.wms-field-submit { justify-content: flex-end; }
+
+.wms-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--yellow);
+  color: #0b0e14;
+  border: none;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: background 0.2s, transform 0.15s;
+}
+
+.wms-btn:hover  { background: #f5cc5a; transform: translateY(-1px); }
+.wms-btn:active { transform: translateY(0); }

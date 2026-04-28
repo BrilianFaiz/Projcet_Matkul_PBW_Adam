@@ -1,0 +1,131 @@
+.wms-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(26, 34, 64, 0.06);
+}
+
+.wms-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.wms-table thead tr {
+  background: var(--navy);
+  border-bottom: none;
+}
+
+.wms-table thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.wms-table thead th:first-child {
+  width: 48px;
+  text-align: center;
+}
+
+.wms-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.wms-table tbody tr:last-child { border-bottom: none; }
+.wms-table tbody tr:hover { background: var(--surface2); }
+
+.wms-table tbody td {
+  padding: 12px 16px;
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.wms-table tbody td:first-child { text-align: center; }
+
+.wms-td-dim {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim) !important;
+}
+
+.wms-td-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.wms-td-bold {
+  font-weight: 600;
+  color: var(--text-h) !important;
+}
+
+.wms-td-green {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--green) !important;
+}
+
+.wms-td-red {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--red) !important;
+}
+
+.wms-td-cumulative {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--blue) !important;
+  letter-spacing: 0.04em;
+}
+
+.wms-stage-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+.wms-stage-wh {
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  color: var(--yellow);
+}
+
+.wms-stage-pr {
+  background: var(--blue-bg);
+  border: 1px solid rgba(32, 96, 200, 0.3);
+  color: var(--blue);
+}
+
+.wms-stage-fg {
+  background: var(--green-bg);
+  border: 1px solid rgba(24, 164, 100, 0.3);
+  color: var(--green);
+}
+
+.wms-table-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-style: dashed;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.wms-table-empty svg { opacity: 0.3; }

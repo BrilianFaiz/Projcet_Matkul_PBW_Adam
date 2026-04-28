@@ -1,121 +1,135 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import Form from "./components/Form";
+import Table from "./components/Table";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [data, setData] = useState<any[]>([]);
+  const warehouseData = data.filter(d => d.stage === "Warehouse RM");
+  const prosesData    = data.filter(d => d.stage === "Proses");
+  const finishData    = data.filter(d => d.stage === "Finish Good");
+
+  const fetchData = async () => {
+    const res = await fetch("http://localhost:1337/api/data");
+    const result = await res.json();
+    const formatted = result.slice(2).map((row: any) => ({
+      tanggal: row[0],
+      barang:  row[1],
+      stage:   row[2],
+      in:      Number(row[3]),
+      out:     Number(row[4]),
+    }));
+    setData(formatted);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleAdd = async (item: any) => {
+    await fetch("http://localhost:1337/api/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(item),
+    });
+    fetchData();
+  };
+
+  const getTotal = (arr: any[]) =>
+    arr.reduce((acc, item) => acc + (item.in - item.out), 0);
+
+  const now = new Date().toLocaleDateString("id-ID", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="wms-root">
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <header className="wms-header">
+        <div className="wms-header-left">
+          <div className="wms-logo-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="1"/>
+              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              <line x1="12" y1="12" x2="12" y2="17"/>
+              <line x1="9" y1="14.5" x2="15" y2="14.5"/>
+            </svg>
+          </div>
+          <div>
+            <div className="wms-title">Warehouse <span>Control</span></div>
+            <div className="wms-subtitle">Management System · v1.0</div>
+          </div>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        <div className="wms-header-right">
+          <div className="wms-status-dot">SYSTEM ONLINE</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", letterSpacing: "0.1em" }}>
+            {now}
+          </div>
         </div>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <div className="wms-kpi-row">
+        <div className="wms-kpi-card yellow">
+          <div className="wms-kpi-label">▸ Warehouse RM</div>
+          <div className="wms-kpi-value">{getTotal(warehouseData)}</div>
+          <div className="wms-kpi-tag">{warehouseData.length} transaksi</div>
+        </div>
+        <div className="wms-kpi-card green">
+          <div className="wms-kpi-label">▸ Proses</div>
+          <div className="wms-kpi-value">{getTotal(prosesData)}</div>
+          <div className="wms-kpi-tag">{prosesData.length} transaksi</div>
+        </div>
+        <div className="wms-kpi-card blue">
+          <div className="wms-kpi-label">▸ Finish Good</div>
+          <div className="wms-kpi-value">{getTotal(finishData)}</div>
+          <div className="wms-kpi-tag">{finishData.length} transaksi</div>
+        </div>
+      </div>
+
+      <Form onAdd={handleAdd} />
+
+      <div className="wms-section">
+        <div className="wms-section-header">
+          <div className="wms-section-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            </svg>
+          </div>
+          <span className="wms-section-title">Warehouse RM</span>
+          <span className="wms-section-badge">TOTAL: {getTotal(warehouseData)}</span>
+        </div>
+        <Table data={warehouseData} />
+      </div>
+
+      <div className="wms-section">
+        <div className="wms-section-header">
+          <div className="wms-section-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
+          </div>
+          <span className="wms-section-title">Proses</span>
+          <span className="wms-section-badge">TOTAL: {getTotal(prosesData)}</span>
+        </div>
+        <Table data={prosesData} />
+      </div>
+
+      <div className="wms-section">
+        <div className="wms-section-header">
+          <div className="wms-section-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polyline points="20 12 20 22 4 22 4 12"/>
+              <rect x="2" y="7" width="20" height="5"/>
+              <line x1="12" y1="22" x2="12" y2="7"/>
+              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+              <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+            </svg>
+          </div>
+          <span className="wms-section-title">Finish Good</span>
+          <span className="wms-section-badge">TOTAL: {getTotal(finishData)}</span>
+        </div>
+        <Table data={finishData} />
+      </div>
+
+    </div>
+  );
 }
-
-export default App
