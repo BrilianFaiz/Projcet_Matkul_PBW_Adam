@@ -6,8 +6,8 @@ export default function Form({ onAdd }: any) {
     tanggal: "",
     barang:  "Batu 1",
     stage:   "Warehouse RM",
-    in:      0,
-    out:     0,
+    in:      "" as string | number,
+    out:     "" as string | number,
   });
 
   const handleChange = (e: any) => {
@@ -21,7 +21,7 @@ export default function Form({ onAdd }: any) {
   const handleSubmit = (e: any) => {
     e.preventDefault();
     onAdd(form);
-    setForm(prev => ({ ...prev, in: 0, out: 0 }));
+    setForm(prev => ({ ...prev, in: "", out: "" }));
   };
 
   const barangList = ["Batu 1", "Batu 2", "Batu 3"];
