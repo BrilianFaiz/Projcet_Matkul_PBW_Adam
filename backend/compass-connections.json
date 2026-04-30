@@ -1,0 +1,24 @@
+{
+  "type": "Compass Connections",
+  "version": {
+    "$numberInt": "1"
+  },
+  "connections": [
+    {
+      "id": "69c0f160-71ad-450b-a9af-cde105c8a0f5",
+      "lastUsed": {
+        "$date": {
+          "$numberLong": "1777505817177"
+        }
+      },
+      "favorite": {
+        "name": "WMS "
+      },
+      "savedConnectionType": "recent",
+      "connectionOptions": {
+        "connectionString": "mongodb://localhost:27017/",
+        "oidc": {}
+      }
+    }
+  ]
+}
