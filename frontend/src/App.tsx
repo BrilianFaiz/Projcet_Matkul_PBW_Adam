@@ -5,36 +5,47 @@ import "./App.css";
 
 export default function App() {
   const [data, setData] = useState<any[]>([]);
+  
   const warehouseData = data.filter(d => d.stage === "Warehouse RM");
   const prosesData    = data.filter(d => d.stage === "Proses");
   const finishData    = data.filter(d => d.stage === "Finish Good");
 
+  // 1. Perbaikan Fetch Data (Arahkan ke Port 5000)
   const fetchData = async () => {
-    const res = await fetch("http://localhost:1337/api/data");
+  try {
+    const res = await fetch("http://localhost:5000/api/User");
+    
+    // Cek dulu apakah responsenya sukses (200 OK)
+    if (!res.ok) throw new Error("Server bermasalah");
+
     const result = await res.json();
-    const formatted = result.slice(2).map((row: any) => ({
-      tanggal: row[0],
-      barang:  row[1],
-      stage:   row[2],
-      in:      Number(row[3]),
-      out:     Number(row[4]),
-    }));
-    setData(formatted);
-  };
+    setData(result); // Masukkan data ke state
+  } catch (err) {
+    console.error("Error fetch:", err);
+  }
+};
 
   useEffect(() => { fetchData(); }, []);
-
+  // 2. Perbaikan Handle Add (Arahkan ke Port 5000)
   const handleAdd = async (item: any) => {
-    await fetch("http://localhost:1337/api/add", {
+  try {
+    // Gunakan await pada fetch agar sinkron
+    const response = await fetch("http://localhost:5000/api/User", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
-    fetchData();
-  };
+
+    if (response.ok) {
+      fetchData(); // Panggil ulang data agar tabel terupdate
+    }
+  } catch (err) {
+    console.error("Gagal menambah data:", err);
+  }
+};
 
   const getTotal = (arr: any[]) =>
-    arr.reduce((acc, item) => acc + (item.in - item.out), 0);
+    arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
 
   const now = new Date().toLocaleDateString("id-ID", {
     day: "2-digit", month: "short", year: "numeric",
