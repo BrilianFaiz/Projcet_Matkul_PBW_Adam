@@ -35,3 +35,19 @@ app.get('/api/User', async (req, res) => {
 });
 
 app.listen(5000, () => console.log('Server jalan di port 5000'));
+
+// fitur cek koneksi database bisa ditambahin nanti, biar kalo database error bisa muncul notif di frontendnya
+app.get("/api/health", async (req, res) => {
+  try {
+    // cek koneksi MongoDB
+    const state = mongoose.connection.readyState;
+
+    if (state === 1) {
+      res.json({ status: "online" });
+    } else {
+      res.status(500).json({ status: "offline" });
+    }
+  } catch (err) {
+    res.status(500).json({ status: "offline" });
+  }
+});
