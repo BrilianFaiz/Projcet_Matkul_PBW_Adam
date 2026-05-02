@@ -1,9 +1,12 @@
 import { useState } from "react";
 import "./Form.css";
 
+const barangList = ["Batu 1", "Batu 2", "Batu 3"];
+const today = new Date().toISOString().split("T")[0];
+
 export default function Form({ onAdd }: any) {
   const [form, setForm] = useState({
-    tanggal: "",
+    tanggal: today,
     barang:  "Batu 1",
     stage:   "Warehouse RM",
     in:      "" as string | number,
@@ -24,7 +27,7 @@ export default function Form({ onAdd }: any) {
     setForm(prev => ({ ...prev, in: "", out: "" }));
   };
 
-  const barangList = ["Batu 1", "Batu 2", "Batu 3"];
+  
 
   return (
     <div className="wms-form-panel">
