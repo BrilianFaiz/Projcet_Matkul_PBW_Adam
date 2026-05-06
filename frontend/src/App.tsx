@@ -5,11 +5,12 @@ import "./App.css";
 
 export default function App() {
   const [data, setData] = useState<any[]>([]);
-
   const warehouseData = data.filter(d => d.stage === "Warehouse RM");
   const prosesData = data.filter(d => d.stage === "Proses");
   const finishData = data.filter(d => d.stage === "Finish Good");
   const [systemStatus, setSystemStatus] = useState("checking"); //update faiz 1 mei check status sistem(online/offline)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStage, setFilterStage] = useState("All");
 
   // 1. Perbaikan Fetch Data (Arahkan ke Port 5000)
   const fetchData = async () => {
@@ -64,6 +65,13 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 3. LOGIKA FILTER UTAMA (DIPAKAI DI SEMUA TABEL)
+  const filteredData = data.filter((item: any) => {
+    const matchesSearch = item.barang.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStage = filterStage === "All" || item.stage === filterStage;
+    return matchesSearch && matchesStage;
+  });
 
   const getTotal = (arr: any[]) =>
     arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
@@ -133,6 +141,51 @@ export default function App() {
       </div>
 
       <Form onAdd={handleAdd} />
+
+       {/* BOX FITUR SEARCH & FILTER (Hanya satu di sini saja) */}
+      <div className="container" style={{ marginTop: '20px' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '15px', 
+          marginBottom: '15px',
+          backgroundColor: '#1a1d23', 
+          padding: '10px', 
+          borderRadius: '8px'
+        }}>
+          <input 
+            type="text" 
+            placeholder="🔍 Cari nama barang..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ 
+              flex: 2, 
+              padding: '10px', 
+              backgroundColor: '#0f111a', 
+              color: 'white', 
+              border: '1px solid #30363d',
+              borderRadius: '5px' 
+            }}
+          />
+          <select 
+            value={filterStage} 
+            onChange={(e) => setFilterStage(e.target.value)}
+            style={{ 
+              flex: 1, 
+              padding: '10px', 
+              backgroundColor: '#0f111a', 
+              color: 'white', 
+              border: '1px solid #30363d',
+              borderRadius: '5px' 
+            }}
+          >
+            <option value="All">Semua Stage</option>
+            <option value="Warehouse RM">Warehouse RM</option>
+            <option value="Proses">Proses</option>
+            <option value="Finish Good">Finish Good</option>
+          </select>
+        </div>
+      </div>
+
 
       <div className="wms-section">
         <div className="wms-section-header">
