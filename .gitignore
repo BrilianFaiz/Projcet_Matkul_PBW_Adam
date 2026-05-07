@@ -31,3 +31,7 @@ Frontend/node_modules/
 # Mengabaikan file rahasia Google API
 Backend/credentials.json
 credentials.json
+
+# Environment variables
+Backend/.env
+.env

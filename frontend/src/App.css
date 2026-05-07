@@ -190,3 +190,47 @@
   letter-spacing: 0.1em;
   margin-left: auto;
 }
+
+/* ── USER INFO & LOGOUT ── */
+.wms-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.wms-user-name {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.wms-user-role {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wms-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wms-logout-btn:hover {
+  background: var(--red-bg);
+  border-color: rgba(217, 64, 64, 0.3);
+  color: var(--red);
+}

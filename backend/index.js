@@ -1,53 +1,51 @@
+require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const User = require('./User');
+
+const Transaksi = require('./models/Transaksi');
+const authRoutes = require('./routes/auth');
+const authMiddleware = require('./middleware/auth');
+
 const app = express();
 
 app.use(cors());
-app.use(express.json()); 
+app.use(express.json());
 
-mongoose.connect('mongodb://localhost:27017/WMS')
-    .then(() => console.log('MongoDB Terhubung... ✅'))
-    .catch(err => console.log(err));
+// koneksi MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB Terhubung ✅'))
+  .catch(err => console.log('MongoDB Error:', err));
 
-// API untuk Simpan Data (POST)
-app.post('/api/user', async (req, res) => {
-    console.log("Menerima data:", req.body); // Debug: Cek data yang diterima
+// routes auth
+app.use('/api/auth', authRoutes);
+
+// API transaksi (dilindungi login)
+app.post('/api/add', authMiddleware, async (req, res) => {
   try {
-    const dataBaru = new User(req.body);
+    const dataBaru = new Transaksi(req.body);
     await dataBaru.save();
-    res.status(201).json({ message: "Berhasil simpan!" });
+    res.status(201).json({ message: 'Berhasil simpan!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// API untuk Ambil Data (GET)
-app.get('/api/User', async (req, res) => {
+app.get('/api/data', authMiddleware, async (req, res) => {
   try {
-    const data = await User.find(); // Mencari semua data di koleksi User
-    res.json(data); // Kirim data dalam format JSON murni
+    const data = await Transaksi.find().sort({ createdAt: 1 });
+    res.json(data);
   } catch (err) {
-    console.error("Gagal ambil data:", err);
-    res.status(500).json({ message: "Gagal mengambil data dari database" });
+    res.status(500).json({ message: 'Gagal mengambil data' });
   }
 });
 
-app.listen(5000, () => console.log('Server jalan di port 5000'));
-
-// fitur cek koneksi database bisa ditambahin nanti, biar kalo database error bisa muncul notif di frontendnya
-app.get("/api/health", async (req, res) => {
-  try {
-    // cek koneksi MongoDB
-    const state = mongoose.connection.readyState;
-
-    if (state === 1) {
-      res.json({ status: "online" });
-    } else {
-      res.status(500).json({ status: "offline" });
-    }
-  } catch (err) {
-    res.status(500).json({ status: "offline" });
-  }
+// health check
+app.get('/api/health', async (req, res) => {
+  const state = mongoose.connection.readyState;
+  res.json({ status: state === 1 ? 'online' : 'offline' });
 });
+
+const PORT = process.env.PORT || 1337;
+app.listen(PORT, () => console.log(`Server jalan di port ${PORT} 🚀`));

@@ -1,77 +1,75 @@
 import { useEffect, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import Form from "./components/Form";
 import Table from "./components/Table";
+import Login from "./pages/Login";
 import "./App.css";
 
-export default function App() {
+function Dashboard() {
+  const { token, user, logout } = useAuth();
   const [data, setData] = useState<any[]>([]);
-  const warehouseData = data.filter(d => d.stage === "Warehouse RM");
-  const prosesData = data.filter(d => d.stage === "Proses");
-  const finishData = data.filter(d => d.stage === "Finish Good");
-  const [systemStatus, setSystemStatus] = useState("checking"); //update faiz 1 mei check status sistem(online/offline)
+  const [systemStatus, setSystemStatus] = useState("checking");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStage, setFilterStage] = useState("All");
 
-  // 1. Perbaikan Fetch Data (Arahkan ke Port 5000)
+  const warehouseData = data.filter(d => d.stage === "Warehouse RM");
+  const prosesData    = data.filter(d => d.stage === "Proses");
+  const finishData    = data.filter(d => d.stage === "Finish Good");
+
   const fetchData = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/User");
-
-      // Cek dulu apakah responsenya sukses (200 OK)
-      if (!res.ok) throw new Error("Server bermasalah");
-
+      const res = await fetch("http://localhost:1337/api/data", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Gagal fetch");
       const result = await res.json();
-      setData(result); // Masukkan data ke state
+      setData(result);
     } catch (err) {
       console.error("Error fetch:", err);
     }
   };
 
   useEffect(() => { fetchData(); }, []);
-  // 2. Perbaikan Handle Add (Arahkan ke Port 5000)
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch("http://localhost:1337/api/health");
+        const data = await res.json();
+        setSystemStatus(data.status);
+      } catch {
+        setSystemStatus("offline");
+      }
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleAdd = async (item: any) => {
     try {
-      // Gunakan await pada fetch agar sinkron
-      const response = await fetch("http://localhost:5000/api/User", {
+      const res = await fetch("http://localhost:1337/api/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(item),
       });
-
-      if (response.ok) {
-        fetchData(); // Panggil ulang data agar tabel terupdate
-      }
+      if (res.ok) fetchData();
     } catch (err) {
       console.error("Gagal menambah data:", err);
     }
   };
 
-  // 3. status sistem online/offline
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/health");
-        const data = await res.json();
-
-        setSystemStatus(data.status);
-      } catch (err) {
-        setSystemStatus("offline");
-      }
-    };
-
-    checkStatus();
-
-    const interval = setInterval(checkStatus, 5000); // cek tiap 5 detik
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // 3. LOGIKA FILTER UTAMA (DIPAKAI DI SEMUA TABEL)
+   // 3. LOGIKA FILTER UTAMA (DIPAKAI DI SEMUA TABEL)
   const filteredData = data.filter((item: any) => {
     const matchesSearch = item.barang.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStage = filterStage === "All" || item.stage === filterStage;
     return matchesSearch && matchesStage;
   });
+
 
   const getTotal = (arr: any[]) =>
     arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
@@ -82,7 +80,6 @@ export default function App() {
 
   return (
     <div className="wms-root">
-
       <header className="wms-header">
         <div className="wms-header-left">
           <div className="wms-logo-badge">
@@ -99,26 +96,27 @@ export default function App() {
           </div>
         </div>
         <div className="wms-header-right">
-          <div
-            className="wms-status-dot"
-            style={{
-              color:
-                systemStatus === "online"
-                  ? "lime"
-                  : systemStatus === "offline"
-                    ? "red"
-                    : "yellow",
-            }}
-          >
-            {systemStatus === "online"
-              ? "SYSTEM ONLINE"
-              : systemStatus === "offline"
-                ? "SYSTEM OFFLINE"
-                : "CHECKING..."}
-          </div>   {/* nanti bikin fitur kalo offline bisa muncul kata offline */}
+          <div className="wms-status-dot" style={{
+            color: systemStatus === "online" ? "var(--green)" : systemStatus === "offline" ? "var(--red)" : "var(--yellow)"
+          }}>
+            {systemStatus === "online" ? "SYSTEM ONLINE" : systemStatus === "offline" ? "SYSTEM OFFLINE" : "CHECKING..."}
+          </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", letterSpacing: "0.1em" }}>
             {datenow}
           </div>
+          {/* User info + logout */}
+          <div className="wms-user-info">
+            <span className="wms-user-name">{user?.nama}</span>
+            <span className="wms-user-role">{user?.role}</span>
+          </div>
+          <button className="wms-logout-btn" onClick={logout}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            KELUAR
+          </button>
         </div>
       </header>
 
@@ -142,7 +140,7 @@ export default function App() {
 
       <Form onAdd={handleAdd} />
 
-       {/* BOX FITUR SEARCH & FILTER (Hanya satu di sini saja) */}
+         {/* BOX FITUR SEARCH & FILTER (Hanya satu di sini saja) */}
       <div className="container" style={{ marginTop: '20px' }}>
         <div style={{ 
           display: 'flex', 
@@ -231,5 +229,19 @@ export default function App() {
         <Table data={finishData} />
       </div>
     </div>
+  );
+}
+
+function PrivateRoute({ children }: any) {
+  const { token } = useAuth();
+  return token ? children : <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+    </Routes>
   );
 }
