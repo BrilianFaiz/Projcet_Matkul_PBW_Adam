@@ -7,6 +7,7 @@ const cors = require('cors');
 const Transaksi = require('./models/Transaksi');
 const authRoutes = require('./routes/auth');
 const authMiddleware = require('./middleware/auth');
+const checkRole = require('./middleware/checkRole');
 
 const app = express();
 
@@ -21,6 +22,16 @@ app.use(express.json());
 
 // routes auth
 app.use('/api/auth', authRoutes);
+
+// OPERATOR & ADMIN: Boleh tambah data
+app.post('/api/add', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {
+  // ... kode simpan data ...
+});
+
+// HANYA ADMIN: Yang boleh ambil semua data untuk visualisasi dashboard
+app.get('/api/data', authMiddleware, checkRole('admin'), async (req, res) => {
+  // ... kode ambil data ...
+});
 
 // API transaksi (dilindungi login)
 app.post('/api/add', authMiddleware, async (req, res) => {
