@@ -14,7 +14,8 @@ app.use(cors());
 app.use(express.json());
 
 // koneksi MongoDB
-mongoose.connect(process.env.MONGO_URI)
+  const dbURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/db_wms";
+  mongoose.connect(dbURI)
   .then(() => console.log('MongoDB Terhubung ✅'))
   .catch(err => console.log('MongoDB Error:', err));
 
