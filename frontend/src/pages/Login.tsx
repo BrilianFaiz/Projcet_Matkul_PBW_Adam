@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Route, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Login.css";
+import Register from "./Register";
 
 export default function Login() {
   const { login } = useAuth();
@@ -128,8 +129,8 @@ export default function Login() {
                   autoComplete="current-password"
                 />
                 {/* Tombol Mata */}
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="login-password-toggle"
                   onClick={togglePassword}
                   tabIndex={-1}
@@ -166,6 +167,9 @@ export default function Login() {
           </form>
 
           <div className="login-footer">
+            <p>
+              Belum punya akun? <Link to="/register">Daftar</Link>
+            </p>
             <span>Lupa password? Hubungi Administrator</span>
           </div>
         </div>

@@ -5,8 +5,9 @@ import Form from "./components/Form";
 import Table from "./components/Table";
 import Login from "./pages/Login";
 import "./App.css";
+import AppRoutes from "./route/AppRoutes";
 
-function Dashboard() {
+export function Dashboard() {
   const { token, user, logout } = useAuth();
   const [data, setData] = useState<any[]>([]);
   const [systemStatus, setSystemStatus] = useState("checking");
@@ -232,16 +233,10 @@ function Dashboard() {
   );
 }
 
-function PrivateRoute({ children }: any) {
-  const { token } = useAuth();
-  return token ? children : <Navigate to="/login" replace />;
-}
+
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-    </Routes>
+    <AppRoutes />
   );
 }
