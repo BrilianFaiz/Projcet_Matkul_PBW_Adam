@@ -11,30 +11,24 @@ const checkRole = require('./middleware/checkRole');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // koneksi MongoDB
-  const dbURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/db_wms";
-  mongoose.connect(dbURI)
+const dbURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/WMS';
+mongoose.connect(dbURI)
   .then(() => console.log('MongoDB Terhubung ✅'))
   .catch(err => console.log('MongoDB Error:', err));
 
 // routes auth
 app.use('/api/auth', authRoutes);
 
-// OPERATOR & ADMIN: Boleh tambah data
+// tambah transaksi — operator & admin
 app.post('/api/add', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {
-  // ... kode simpan data ...
-});
-
-// HANYA ADMIN: Yang boleh ambil semua data untuk visualisasi dashboard
-app.get('/api/data', authMiddleware, checkRole('admin'), async (req, res) => {
-  // ... kode ambil data ...
-});
-
-// API transaksi (dilindungi login)
-app.post('/api/add', authMiddleware, async (req, res) => {
   try {
     const dataBaru = new Transaksi(req.body);
     await dataBaru.save();
@@ -44,7 +38,8 @@ app.post('/api/add', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/api/data', authMiddleware, async (req, res) => {
+// ambil semua data — operator & admin
+app.get('/api/data', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {
   try {
     const data = await Transaksi.find().sort({ createdAt: 1 });
     res.json(data);
