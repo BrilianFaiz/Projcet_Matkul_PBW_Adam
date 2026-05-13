@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  let token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  // bersihkan tanda kutip kalau ada
+  if (token) token = token.replace(/'/g, "").trim();
 
   if (!token) {
     return res.status(401).json({ message: 'Akses ditolak, token tidak ada' });

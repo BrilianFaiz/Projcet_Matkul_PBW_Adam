@@ -10,15 +10,16 @@ export function AuthProvider({ children }: any) {
     const savedToken = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
     if (savedToken && savedUser) {
-      setToken(savedToken);
+      setToken(savedToken.replace(/'/g, ""));
       setUser(JSON.parse(savedUser));
     }
   }, []);
 
   const login = (token: string, user: any) => {
-    localStorage.setItem("token", token);
+    const cleanToken = token.replace(/'/g, "");
+    localStorage.setItem("token", cleanToken);
     localStorage.setItem("user", JSON.stringify(user));
-    setToken(token);
+    setToken(cleanToken);
     setUser(user);
   };
 
