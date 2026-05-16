@@ -5,7 +5,6 @@ import Form from "./components/Form";
 import Table from "./components/Table";
 import Login from "./pages/Login";
 import "./App.css";
-import AppRoutes from "./route/AppRoutes";
 
 export function Dashboard() {
   const { token, user, logout } = useAuth();
@@ -307,13 +306,13 @@ export function Dashboard() {
   );
 }
 
-
+function PrivateRoute({ children }: any) {
+  const { token } = useAuth();
+  return token ? children : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
-<<<<<<< HEAD
-    <AppRoutes />
-=======
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
@@ -325,6 +324,5 @@ export default function App() {
         }
       />
     </Routes>
->>>>>>> f8124004aa5c243c937b11c83255234a41815661
   );
 }
