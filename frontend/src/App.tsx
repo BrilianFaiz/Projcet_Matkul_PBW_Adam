@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Form from "./components/Form";
 import Table from "./components/Table";
-import Login from "./pages/Login";
 import "./App.css";
 import AppRoutes from "./route/AppRoutes";
 
@@ -311,20 +309,6 @@ export function Dashboard() {
 
 export default function App() {
   return (
-<<<<<<< HEAD
     <AppRoutes />
-=======
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-    </Routes>
->>>>>>> f8124004aa5c243c937b11c83255234a41815661
   );
 }
