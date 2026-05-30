@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // State untuk melacak ID item yang baru divalidasi admin secara real-time
-  const [approvedIds, setApprovedIds] = useState<number[]>([]);
+  const [approvedIds, setApprovedIds] = useState<any[]>([]);
 
   // State Form Input Operator
   const [reqBarang, setReqBarang] = useState("");
@@ -30,7 +30,8 @@ export default function Dashboard() {
       });
       if (!res.ok) throw new Error("Gagal fetch data");
       const result = await res.json();
-      setData(result);
+      // Mengantisipasi jika respon Strapi terbungkus dalam properti .data agar filter tidak error
+      setData(result.data || result);
     } catch (err) {
       console.error("Error fetch:", err);
     }
@@ -63,7 +64,7 @@ export default function Dashboard() {
         ...item,
         operatorName: item.operatorName || user?.nama,
         rolePengirim: user?.role,
-        tanggal: item.tanggal || new Date().toISOString() // Memastikan field tanggal selalu terisi saat input baru
+        tanggal: item.tanggal || new Date().toISOString()
       };
       const res = await fetch("http://localhost:1337/api/add", {
         method: "POST",
@@ -71,7 +72,7 @@ export default function Dashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ data: payload }),
       });
       if (res.ok) {
         fetchData(); // Otomatis reload data agar riwayat langsung terupdate
@@ -102,21 +103,50 @@ export default function Dashboard() {
   };
 
   const handleAdminApproveBahan = async (item: any) => {
-  await handleAdd({
-    barang: item.barang,
-    in: 0,
-    out: item.out, 
-    stage: "Warehouse RM", 
-    statusProduksi: "Disetujui",
-    operatorName: item.operatorName
-  });
+    try {
+      // 1. Buat data baru untuk mencatat pengeluaran stok dari Gudang Utama
+      await handleAdd({
+        barang: item.barang,
+        in: 0,
+        out: item.out, 
+        stage: "Warehouse RM", 
+        statusProduksi: "Disetujui", 
+        operatorName: item.operatorName
+      });
 
-  // 🔴 UBAH DI SINI: Ganti dari item.id menjadi item._id
-  if (item._id) {
-    setApprovedIds((prev) => [...prev, item._id]);
-  }
-  alert(`Validasi Berhasil! Bahan baku keluar dari Gudang Utama.`);
-};
+      // 2. Fallback ID karena database Strapi menggunakan .id bukan ._id
+      const currentId = item.id || item._id;
+
+      if (currentId) {
+        // 3. Update status request lama di database dengan wrapper objek 'data'
+        const resUpdate = await fetch(`http://localhost:1337/api/data/${currentId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            data: {
+              statusProduksi: "Disetujui"
+            }
+          }),
+        });
+
+        if (!resUpdate.ok) {
+          console.error("Gagal memperbarui status request di database");
+        }
+
+        setApprovedIds((prev) => [...prev, currentId]);
+      } else {
+        console.error("ID item tidak terdefinisi!");
+      }
+      
+      alert(`Validasi Berhasil!`);
+      fetchData(); // Sync ulang data global setelah update status berhasil
+    } catch (err) {
+      console.error("Gagal memproses validasi bahan:", err);
+    }
+  };
 
   // =========================================================
   // ALUR 2: LAPORAN HASIL PRODUKSI
@@ -141,34 +171,64 @@ export default function Dashboard() {
   };
 
   const handleAdminApproveHasil = async (item: any) => {
-  if (item.in > 0) {
-    await handleAdd({
-      barang: item.barang,
-      in: item.in,
-      out: 0,
-      stage: "Finish Good",
-      statusProduksi: "Selesai",
-      operatorName: item.operatorName
-    });
-  }
-  if (item.reject > 0) {
-    await handleAdd({
-      barang: `${item.barang} (Cacat Produksi)`,
-      in: 0,
-      out: 0,
-      reject: item.reject,
-      stage: "Proses",
-      statusProduksi: "Selesai",
-      operatorName: item.operatorName
-    });
-  }
+    try {
+      // 1. Masukkan barang berhasil ke Finish Good
+      if (item.in > 0) {
+        await handleAdd({
+          barang: item.barang,
+          in: item.in,
+          out: 0,
+          stage: "Finish Good",
+          statusProduksi: "Selesai",
+          operatorName: item.operatorName
+        });
+      }
+      // 2. Masukkan barang reject ke Proses/Cacat
+      if (item.reject > 0) {
+        await handleAdd({
+          barang: `${item.barang} (Cacat Produksi)`,
+          in: 0,
+          out: 0,
+          reject: item.reject,
+          stage: "Proses",
+          statusProduksi: "Selesai",
+          operatorName: item.operatorName
+        });
+      }
 
-  // 🔴 UBAH DI SINI: Gunakan item._id karena MongoDB menggunakan underscore
-  if (item._id) {
-    setApprovedIds((prev) => [...prev, item._id]);
-  }
-  alert(`Laporan Produksi Ter-validasi!`);
-};
+      // 3. Fallback ID karena database Strapi menggunakan .id bukan ._id
+      const currentId = item.id || item._id;
+
+      if (currentId) {
+        // 4. Update status laporan produksi lama langsung dieksekusi tanpa dibungkus fungsi baru
+        const resUpdate = await fetch(`http://localhost:1337/api/data/${currentId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            data: {
+              statusProduksi: "Selesai",
+            },
+          }),
+        });
+
+        if (!resUpdate.ok) {
+          console.error("Gagal memperbarui status laporan di database");
+        }
+
+        setApprovedIds((prev) => [...prev, currentId]);
+      } else {
+        console.error("ID item tidak terdefinisi!");
+      }
+
+      alert(`Laporan Produksi Ter-validasi!`);
+      fetchData(); // Sync ulang data global setelah update status berhasil
+    } catch (err) {
+      console.error("Gagal memproses validasi laporan hasil:", err);
+    }
+  };
 
   const getTotal = (arr: any[]) =>
     arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
@@ -234,7 +294,7 @@ export default function Dashboard() {
             <div className="wms-kpi-card blue"><div className="wms-kpi-label">Produk Jadi (Finish Good)</div><div className="wms-kpi-value">{getTotal(finishData)} Pcs</div></div>
           </div>
 
-         {/* VALIDASI REQUEST BAHAN */}
+          {/* VALIDASI REQUEST BAHAN */}
           <div className="wms-section" style={{ background: "rgba(232, 160, 32, 0.05)", padding: "20px", border: "1px solid var(--yellow)", marginBottom: "25px" }}>
             <h4 style={{ margin: "0 0 15px 0", color: "var(--yellow)" }}>🔔 VALIDASI PERMINTAAN BAHAN BAKU OPERATOR</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -242,18 +302,16 @@ export default function Dashboard() {
                 <div style={{ color: "white", fontSize: "14px", fontStyle: "italic" }}>Tidak ada permintaan bahan baku masuk.</div>
               ) : (
                 pendingBahanRequests.map((req) => {
-                  // 🔴 UBAH DI SINI: Gunakan req._id untuk pengecekan status
-                  const isApproved = approvedIds.includes(req._id) || req.statusProduksi === "Disetujui";
+                  const currentReqId = req.id || req._id;
+                  const isApproved = approvedIds.includes(currentReqId) || req.statusProduksi === "Disetujui";
                   
                   return (
-                    // 🔴 UBAH DI SINI: Gunakan req._id sebagai key unik element
-                    <div key={req._id || req.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
+                    <div key={currentReqId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
                       <div style={{ fontSize: "14px", color: "#1a2240" }}>
                         <span style={{ color: "#777", marginRight: "10px" }}>[{formatTanggalTabel(req)}]</span>
                         Operator <strong>{req.operatorName || "Lapangan"}</strong> memerlukan bahan <strong>{req.out} pcs</strong> dari: <u>{req.barang}</u>
                       </div>
                       
-                      {/* PERUBAHAN SINKRONISASI TOMBOL JADI CENTANG HIJAU */}
                       {isApproved ? (
                         <span style={{ color: "#2ec4b6", fontWeight: "bold", fontSize: "14px" }}>
                           ✓ DISETUJUI & STOK RM TERPOTONG
@@ -269,6 +327,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
           {/* VALIDASI LAPORAN PRODUKSI */}
           <div className="wms-section" style={{ background: "rgba(0, 180, 216, 0.05)", padding: "20px", border: "1px solid var(--blue)", marginBottom: "25px" }}>
             <h4 style={{ margin: "0 0 15px 0", color: "var(--blue)" }}>📦 VALIDASI HASIL AKHIR PRODUKSI (MASUK GUDANG FINISH GOOD)</h4>
@@ -277,31 +336,30 @@ export default function Dashboard() {
                 <div style={{ color: "white", fontSize: "14px", fontStyle: "italic" }}>Tidak ada laporan hasil produksi masuk.</div>
               ) : (
                 pendingHasilRequests.map((hasil) => {
-  // 🔴 UBAH DI SINI: Gunakan hasil._id dan tambahkan pengecekan _id pada key array
-  const isApproved = approvedIds.includes(hasil._id) || hasil.statusProduksi === "Selesai";
-  
-  return (
-    <div key={hasil._id || hasil.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: "14px", color: "#1a2240" }}>
-        <span style={{ color: "#777", marginRight: "10px" }}>[{formatTanggalTabel(hasil)}]</span>
-        Hasil Production item <strong>{hasil.barang}</strong> oleh <strong>{hasil.operatorName || "Lapangan"}</strong>: 
-        <span style={{ color: "var(--green)", fontWeight: "bold" }}> {hasil.in} Berhasil</span> | 
-        <span style={{ color: "var(--red)", fontWeight: "bold" }}> {hasil.reject || 0} Reject</span>
-      </div>
-      
-      {isApproved ? (
-        // Tampilan tulisan berhasil divalidasi warna hijau
-        <span style={{ color: "var(--green)", fontWeight: "bold", fontSize: "14px" }}>
-          ✓ BERHASIL DI VALIDASI & FG BERTAMBAH
-        </span>
-      ) : (
-        <button onClick={() => handleAdminApproveHasil(hasil)} style={{ padding: "8px 16px", background: "var(--blue)", color: "white", fontWeight: "bold", border: "none", cursor: "pointer", borderRadius: "4px" }}>
-          VALIDASI HASIL PRODUKSI
-        </button>
-      )}
-    </div>
-  );
-})
+                  const currentHasilId = hasil.id || hasil._id;
+                  const isApproved = approvedIds.includes(currentHasilId) || hasil.statusProduksi === "Selesai";
+                  
+                  return (
+                    <div key={currentHasilId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: "14px", color: "#1a2240" }}>
+                        <span style={{ color: "#777", marginRight: "10px" }}>[{formatTanggalTabel(hasil)}]</span>
+                        Hasil Production item <strong>{hasil.barang}</strong> oleh <strong>{hasil.operatorName || "Lapangan"}</strong>: 
+                        <span style={{ color: "var(--green)", fontWeight: "bold" }}> {hasil.in} Berhasil</span> | 
+                        <span style={{ color: "var(--red)", fontWeight: "bold" }}> {hasil.reject || 0} Reject</span>
+                      </div>
+                      
+                      {isApproved ? (
+                        <span style={{ color: "var(--green)", fontWeight: "bold", fontSize: "14px" }}>
+                          ✓ BERHASIL DI VALIDASI & FG BERTAMBAH
+                        </span>
+                      ) : (
+                        <button onClick={() => handleAdminApproveHasil(hasil)} style={{ padding: "8px 16px", background: "var(--blue)", color: "white", fontWeight: "bold", border: "none", cursor: "pointer", borderRadius: "4px" }}>
+                          VALIDASI HASIL PRODUKSI
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -373,7 +431,7 @@ export default function Dashboard() {
 
           {/* 📋 SEKSI: TABEL DAFTAR RIWAYAT AKTIVITAS OPERATOR */}
           <div className="wms-section" style={{ marginTop: "30px" }}>
-            <h3 style={{ color: "white", borderBottom: "2px solid var(--border)", paddingBottom: "10px", marginBottom: "20px" }}>
+            <h3 style={{ color: "black", borderBottom: "2px solid var(--border)", paddingBottom: "10px", marginBottom: "20px" }}>
               📋 TRACKING LIVE: RIWAYAT AKTIVITAS SAYA
             </h3>
 
@@ -394,28 +452,30 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allBahanRequests.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                          {/* KOLOM TANGGAL OPERATOR BAHAN */}
-                          <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
-                            {formatTanggalTabel(item)}
-                          </td>
-                          <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                          <td style={{ padding: "10px", color: "var(--yellow)", fontWeight: "bold" }}>{item.out} Pcs</td>
-                          <td style={{ padding: "10px" }}>
-                            <span style={{ 
-                              padding: "3px 8px", 
-                              fontSize: "11px", 
-                              fontWeight: "bold", 
-                              borderRadius: "3px",
-                              background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(46,204,113,0.2)",
-                              color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--green)"
-                            }}>
-                              {item.statusProduksi === "Pending" ? "⏳ PENDING" : "✅ DISETUJUI"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {allBahanRequests.map((item) => {
+                        const rowId = item.id || item._id || Math.random().toString();
+                        return (
+                          <tr key={rowId} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
+                            <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
+                              {formatTanggalTabel(item)}
+                            </td>
+                            <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
+                            <td style={{ padding: "10px", color: "var(--yellow)", fontWeight: "bold" }}>{item.out} Pcs</td>
+                            <td style={{ padding: "10px" }}>
+                              <span style={{ 
+                                padding: "3px 8px", 
+                                fontSize: "11px", 
+                                fontWeight: "bold", 
+                                borderRadius: "3px",
+                                background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(46,204,113,0.2)",
+                                color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--green)"
+                              }}>
+                                {item.statusProduksi === "Pending" ? "⏳ PENDING" : "✅ DISETUJUI"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -440,29 +500,31 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allHasilRequests.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                          {/* KOLOM TANGGAL OPERATOR PRODUK */}
-                          <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
-                            {formatTanggalTabel(item)}
-                          </td>
-                          <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                          <td style={{ padding: "10px", color: "var(--green)", fontWeight: "bold" }}>{item.in} Pcs</td>
-                          <td style={{ padding: "10px", color: "var(--red)", fontWeight: "bold" }}>{item.reject || 0} Pcs</td>
-                          <td style={{ padding: "10px" }}>
-                            <span style={{ 
-                              padding: "3px 8px", 
-                              fontSize: "11px", 
-                              fontWeight: "bold", 
-                              borderRadius: "3px",
-                              background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(52,152,219,0.2)",
-                              color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--blue)"
-                            }}>
-                              {item.statusProduksi === "Pending" ? "⏳ PROSES CHECK" : "📦 DIVALIDASI"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {allHasilRequests.map((item) => {
+                        const rowId = item.id || item._id || Math.random().toString();
+                        return (
+                          <tr key={rowId} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
+                            <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
+                              {formatTanggalTabel(item)}
+                            </td>
+                            <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
+                            <td style={{ padding: "10px", color: "var(--green)", fontWeight: "bold" }}>{item.in} Pcs</td>
+                            <td style={{ padding: "10px", color: "var(--red)", fontWeight: "bold" }}>{item.reject || 0} Pcs</td>
+                            <td style={{ padding: "10px" }}>
+                              <span style={{ 
+                                padding: "3px 8px", 
+                                fontSize: "11px", 
+                                fontWeight: "bold", 
+                                borderRadius: "3px",
+                                background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(52,152,219,0.2)",
+                                color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--blue)"
+                              }}>
+                                {item.statusProduksi === "Pending" ? "⏳ PROSES CHECK" : "📦 DIVALIDASI"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -472,7 +534,7 @@ export default function Dashboard() {
           </div>
 
           <div className="wms-section" style={{ marginTop: "20px" }}>
-            <h4 style={{ margin: "0 0 15px 0", color: "white" }}>📋 4. DAFTAR BAHAN BAKU TERSEDIA DI GUDANG UTAMA</h4>
+            <h4 style={{ margin: "0 0 15px 0", color: "black" }}>📋 4. DAFTAR BAHAN BAKU TERSEDIA DI GUDANG UTAMA</h4>
             <Table data={warehouseData} />
           </div>
         </div>

@@ -3,6 +3,18 @@ import "./Table.css";
 export default function Table({ data }: any) {
   let cumulative = 0;
 
+  // Fungsi helper untuk format tampilan tanggal biar seragam DD/MM/YYYY
+  const formatTanggal = (item: any) => {
+    const rawDate = item.createdAt || item.tanggal;
+    if (!rawDate) return "-";
+    
+    return new Date(rawDate).toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   if (data.length === 0) {
     return (
       <div className="wms-table-empty">
@@ -46,9 +58,12 @@ export default function Table({ data }: any) {
               statusLower === "pending" ? "wms-status-pending" : "wms-status-done";
 
             return (
-              <tr key={i}>
+              <tr key={item._id || item.id || i}>
                 <td className="wms-td-dim">{String(i + 1).padStart(2, "0")}</td>
-                <td className="wms-td-mono">{item.tanggal || "-"}</td>
+                
+                {/* 🛠️ PERBAIKAN DI SINI: Sekarang menggunakan helper formatTanggal */}
+                <td className="wms-td-mono">{formatTanggal(item)}</td>
+                
                 <td className="wms-td-bold">{item.barang}</td>
                 <td>
                   <span className={`wms-stage-badge wms-stage-${item.stage === "Warehouse RM" ? "wh" : item.stage === "Proses" ? "pr" : "fg"}`}>
