@@ -28,28 +28,56 @@ export default function Table({ data }: any) {
             <th>Out</th>
             <th>Balance</th>
             <th>Cumulative</th>
+            {/* KOLOM TAMBAHAN UNTUK JOBDESK ISOMRS */}
+            <th>Status</th>
+            <th>Reject</th>
+            <th>PIC / Operator</th>
           </tr>
         </thead>
         <tbody>
           {data.map((item: any, i: number) => {
-            const balance = item.in - item.out;
+            const balance = (Number(item.in) || 0) - (Number(item.out) || 0);
             cumulative += balance;
+
+            // Logika pewarnaan badge status produksi (Proses, Selesai, Pending)
+            const statusLower = item.statusProduksi?.toLowerCase() || "selesai";
+            const statusClass = 
+              statusLower === "proses" ? "wms-status-process" : 
+              statusLower === "pending" ? "wms-status-pending" : "wms-status-done";
+
             return (
               <tr key={i}>
                 <td className="wms-td-dim">{String(i + 1).padStart(2, "0")}</td>
-                <td className="wms-td-mono">{item.tanggal}</td>
+                <td className="wms-td-mono">{item.tanggal || "-"}</td>
                 <td className="wms-td-bold">{item.barang}</td>
                 <td>
                   <span className={`wms-stage-badge wms-stage-${item.stage === "Warehouse RM" ? "wh" : item.stage === "Proses" ? "pr" : "fg"}`}>
                     {item.stage}
                   </span>
                 </td>
-                <td className="wms-td-green">+{item.in}</td>
-                <td className="wms-td-red">-{item.out}</td>
+                <td className="wms-td-green">+{item.in || 0}</td>
+                <td className="wms-td-red">-{item.out || 0}</td>
                 <td className={balance >= 0 ? "wms-td-green" : "wms-td-red"}>
                   {balance >= 0 ? `+${balance}` : balance}
                 </td>
                 <td className="wms-td-cumulative">{cumulative}</td>
+
+                {/* 1. STATUS PRODUKSI (Proses / Selesai / Pending) */}
+                <td>
+                  <span className={`wms-status-badge ${statusClass}`}>
+                    {item.statusProduksi || (item.stage === "Warehouse RM" ? "Ready" : "Selesai")}
+                  </span>
+                </td>
+
+                {/* 2. JUMLAH BARANG REJECT / CACAT */}
+                <td className={Number(item.reject) > 0 ? "wms-td-red wms-td-bold" : "wms-td-dim"}>
+                  {item.reject && Number(item.reject) > 0 ? `${item.reject} Pcs` : "-"}
+                </td>
+
+                {/* 3. NAMA OPERATOR YANG BERTANGGUNG JAWAB */}
+                <td className="wms-td-bold" style={{ color: "var(--yellow)", fontSize: "12px" }}>
+                  {item.operatorName || "Admin Gudang"}
+                </td>
               </tr>
             );
           })}

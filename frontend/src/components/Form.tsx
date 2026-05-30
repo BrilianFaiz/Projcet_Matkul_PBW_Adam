@@ -1,13 +1,12 @@
 import { useState } from "react";
 import "./Form.css";
 
-const barangList = ["Batu 1", "Batu 2", "Batu 3"];
 const today = new Date().toISOString().split("T")[0];
 
 export default function Form({ onAdd }: any) {
   const [form, setForm] = useState({
     tanggal: today,
-    barang:  "Batu 1",
+    barang:  "", // 🔴 Diubah dari "Batu 1" menjadi string kosong
     stage:   "Warehouse RM",
     in:      "" as string | number,
     out:     "" as string | number,
@@ -23,11 +22,14 @@ export default function Form({ onAdd }: any) {
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
+    if (!form.barang.trim()) {
+      alert("Nama barang tidak boleh kosong!");
+      return;
+    }
     onAdd(form);
-    setForm(prev => ({ ...prev, in: "", out: "" }));
+    // 🔴 Setelah submit, form in & out dikosongkan, barang juga dikosongkan biar bisa input barang baru lagi
+    setForm(prev => ({ ...prev, barang: "", in: "", out: "" }));
   };
-
-  
 
   return (
     <div className="wms-form-panel">
@@ -51,11 +53,18 @@ export default function Form({ onAdd }: any) {
             <input className="wms-input" type="date" name="tanggal" value={form.tanggal} onChange={handleChange} />
           </div>
 
+          {/* 🔴 BAGIAN BARANG SEKARANG SUDAH MENJADI INPUT TEXT BEBAS */}
           <div className="wms-field">
             <label className="wms-label">BARANG</label>
-            <select className="wms-select" name="barang" value={form.barang} onChange={handleChange}>
-              {barangList.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <input 
+              className="wms-input" 
+              type="text" 
+              name="barang" 
+              placeholder="Ketik nama barang..." 
+              value={form.barang} 
+              onChange={handleChange} 
+              autoComplete="off"
+            />
           </div>
 
           <div className="wms-field">
