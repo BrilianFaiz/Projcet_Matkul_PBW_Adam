@@ -30,8 +30,7 @@ export default function Dashboard() {
       });
       if (!res.ok) throw new Error("Gagal fetch data");
       const result = await res.json();
-      // Mengantisipasi jika respon Strapi terbungkus dalam properti .data agar filter tidak error
-      setData(result.data || result);
+      setData(result);
     } catch (err) {
       console.error("Error fetch:", err);
     }
@@ -72,7 +71,7 @@ export default function Dashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ data: payload }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         fetchData(); // Otomatis reload data agar riwayat langsung terupdate
@@ -114,31 +113,22 @@ export default function Dashboard() {
         operatorName: item.operatorName
       });
 
-      // 2. Fallback ID karena database Strapi menggunakan .id bukan ._id
-      const currentId = item.id || item._id;
-
-      if (currentId) {
-        // 3. Update status request lama di database dengan wrapper objek 'data'
-        const resUpdate = await fetch(`http://localhost:1337/api/data/${currentId}`, {
+      // 2. Update status request lama di database berdasarkan ID-nya menjadi "Disetujui"
+      if (item._id) {
+        const resUpdate = await fetch(`http://localhost:1337/api/data/${item._id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            data: {
-              statusProduksi: "Disetujui"
-            }
-          }),
+          body: JSON.stringify({ statusProduksi: "Disetujui" }),
         });
 
         if (!resUpdate.ok) {
           console.error("Gagal memperbarui status request di database");
         }
 
-        setApprovedIds((prev) => [...prev, currentId]);
-      } else {
-        console.error("ID item tidak terdefinisi!");
+        setApprovedIds((prev) => [...prev, item._id]);
       }
       
       alert(`Validasi Berhasil!`);
@@ -196,31 +186,22 @@ export default function Dashboard() {
         });
       }
 
-      // 3. Fallback ID karena database Strapi menggunakan .id bukan ._id
-      const currentId = item.id || item._id;
-
-      if (currentId) {
-        // 4. Update status laporan produksi lama langsung dieksekusi tanpa dibungkus fungsi baru
-        const resUpdate = await fetch(`http://localhost:1337/api/data/${currentId}`, {
+      // 3. Update status laporan produksi lama di database berdasarkan ID-nya menjadi "Selesai"
+      if (item._id) {
+        const resUpdate = await fetch(`http://localhost:1337/api/data/${item._id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            data: {
-              statusProduksi: "Selesai",
-            },
-          }),
+          body: JSON.stringify({ statusProduksi: "Selesai" }),
         });
 
         if (!resUpdate.ok) {
           console.error("Gagal memperbarui status laporan di database");
         }
 
-        setApprovedIds((prev) => [...prev, currentId]);
-      } else {
-        console.error("ID item tidak terdefinisi!");
+        setApprovedIds((prev) => [...prev, item._id]);
       }
 
       alert(`Laporan Produksi Ter-validasi!`);
@@ -302,11 +283,10 @@ export default function Dashboard() {
                 <div style={{ color: "white", fontSize: "14px", fontStyle: "italic" }}>Tidak ada permintaan bahan baku masuk.</div>
               ) : (
                 pendingBahanRequests.map((req) => {
-                  const currentReqId = req.id || req._id;
-                  const isApproved = approvedIds.includes(currentReqId) || req.statusProduksi === "Disetujui";
+                  const isApproved = approvedIds.includes(req._id) || req.statusProduksi === "Disetujui";
                   
                   return (
-                    <div key={currentReqId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
+                    <div key={req._id || req.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
                       <div style={{ fontSize: "14px", color: "#1a2240" }}>
                         <span style={{ color: "#777", marginRight: "10px" }}>[{formatTanggalTabel(req)}]</span>
                         Operator <strong>{req.operatorName || "Lapangan"}</strong> memerlukan bahan <strong>{req.out} pcs</strong> dari: <u>{req.barang}</u>
@@ -336,11 +316,10 @@ export default function Dashboard() {
                 <div style={{ color: "white", fontSize: "14px", fontStyle: "italic" }}>Tidak ada laporan hasil produksi masuk.</div>
               ) : (
                 pendingHasilRequests.map((hasil) => {
-                  const currentHasilId = hasil.id || hasil._id;
-                  const isApproved = approvedIds.includes(currentHasilId) || hasil.statusProduksi === "Selesai";
+                  const isApproved = approvedIds.includes(hasil._id) || hasil.statusProduksi === "Selesai";
                   
                   return (
-                    <div key={currentHasilId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
+                    <div key={hasil._id || hasil.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "12px 16px", border: "1px solid var(--border)" }}>
                       <div style={{ fontSize: "14px", color: "#1a2240" }}>
                         <span style={{ color: "#777", marginRight: "10px" }}>[{formatTanggalTabel(hasil)}]</span>
                         Hasil Production item <strong>{hasil.barang}</strong> oleh <strong>{hasil.operatorName || "Lapangan"}</strong>: 
@@ -452,30 +431,27 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allBahanRequests.map((item) => {
-                        const rowId = item.id || item._id || Math.random().toString();
-                        return (
-                          <tr key={rowId} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                            <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
-                              {formatTanggalTabel(item)}
-                            </td>
-                            <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                            <td style={{ padding: "10px", color: "var(--yellow)", fontWeight: "bold" }}>{item.out} Pcs</td>
-                            <td style={{ padding: "10px" }}>
-                              <span style={{ 
-                                padding: "3px 8px", 
-                                fontSize: "11px", 
-                                fontWeight: "bold", 
-                                borderRadius: "3px",
-                                background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(46,204,113,0.2)",
-                                color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--green)"
-                              }}>
-                                {item.statusProduksi === "Pending" ? "⏳ PENDING" : "✅ DISETUJUI"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {allBahanRequests.map((item) => (
+                        <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
+                          <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
+                            {formatTanggalTabel(item)}
+                          </td>
+                          <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
+                          <td style={{ padding: "10px", color: "var(--yellow)", fontWeight: "bold" }}>{item.out} Pcs</td>
+                          <td style={{ padding: "10px" }}>
+                            <span style={{ 
+                              padding: "3px 8px", 
+                              fontSize: "11px", 
+                              fontWeight: "bold", 
+                              borderRadius: "3px",
+                              background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(46,204,113,0.2)",
+                              color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--green)"
+                            }}>
+                              {item.statusProduksi === "Pending" ? "⏳ PENDING" : "✅ DISETUJUI"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -500,31 +476,28 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allHasilRequests.map((item) => {
-                        const rowId = item.id || item._id || Math.random().toString();
-                        return (
-                          <tr key={rowId} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                            <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
-                              {formatTanggalTabel(item)}
-                            </td>
-                            <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                            <td style={{ padding: "10px", color: "var(--green)", fontWeight: "bold" }}>{item.in} Pcs</td>
-                            <td style={{ padding: "10px", color: "var(--red)", fontWeight: "bold" }}>{item.reject || 0} Pcs</td>
-                            <td style={{ padding: "10px" }}>
-                              <span style={{ 
-                                padding: "3px 8px", 
-                                fontSize: "11px", 
-                                fontWeight: "bold", 
-                                borderRadius: "3px",
-                                background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(52,152,219,0.2)",
-                                color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--blue)"
-                              }}>
-                                {item.statusProduksi === "Pending" ? "⏳ PROSES CHECK" : "📦 DIVALIDASI"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {allHasilRequests.map((item) => (
+                        <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
+                          <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>
+                            {formatTanggalTabel(item)}
+                          </td>
+                          <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
+                          <td style={{ padding: "10px", color: "var(--green)", fontWeight: "bold" }}>{item.in} Pcs</td>
+                          <td style={{ padding: "10px", color: "var(--red)", fontWeight: "bold" }}>{item.reject || 0} Pcs</td>
+                          <td style={{ padding: "10px" }}>
+                            <span style={{ 
+                              padding: "3px 8px", 
+                              fontSize: "11px", 
+                              fontWeight: "bold", 
+                              borderRadius: "3px",
+                              background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(52,152,219,0.2)",
+                              color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--blue)"
+                            }}>
+                              {item.statusProduksi === "Pending" ? "⏳ PROSES CHECK" : "📦 DIVALIDASI"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
