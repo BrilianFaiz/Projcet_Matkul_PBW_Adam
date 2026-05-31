@@ -10,6 +10,7 @@ const cors = require('cors');
 
 const Transaksi = require('./models/Transaksi');
 const authRoutes = require('./routes/auth');
+const dataRoutes = require("./routes/data");
 const authMiddleware = require('./middleware/auth');
 const checkRole = require('./middleware/checkRole');
 
@@ -30,6 +31,7 @@ mongoose.connect(dbURI)
 
 // routes auth
 app.use('/api/auth', authRoutes);
+app.use('/api/data', dataRoutes);
 
 // tambah transaksi — operator & admin
 app.post('/api/add', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {

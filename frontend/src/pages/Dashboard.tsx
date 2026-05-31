@@ -8,7 +8,7 @@ export default function Dashboard() {
 
   const [data, setData] = useState<any[]>([]);
   const [systemStatus, setSystemStatus] = useState("checking");
-  const [searchTerm, setSearchTerm] = useState("");
+ 
 
   // State untuk melacak ID item yang baru divalidasi admin secara real-time
   const [approvedIds, setApprovedIds] = useState<any[]>([]);
@@ -103,15 +103,7 @@ export default function Dashboard() {
 
   const handleAdminApproveBahan = async (item: any) => {
     try {
-      // 1. Buat data baru untuk mencatat pengeluaran stok dari Gudang Utama
-      await handleAdd({
-        barang: item.barang,
-        in: 0,
-        out: item.out, 
-        stage: "Warehouse RM", 
-        statusProduksi: "Disetujui", 
-        operatorName: item.operatorName
-      });
+      
 
       // 2. Update status request lama di database berdasarkan ID-nya menjadi "Disetujui"
       if (item._id) {
@@ -129,6 +121,8 @@ export default function Dashboard() {
         }
 
         setApprovedIds((prev) => [...prev, item._id]);
+         console.log("ID yang akan diupdate:", item._id);
+      console.log(await resUpdate.text());
       }
       
       alert(`Validasi Berhasil!`);
