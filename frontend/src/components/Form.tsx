@@ -161,8 +161,8 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
                     {namaBarang}
                   </option>
                 ))}
-                <option value="__NEW_ITEM__" style={{ fontStyle: "italic", color: "var(--blue)", fontWeight: "bold" }}>
-                  ➕ (+ Ketik Master Barang Baru...)
+                <option value="__NEW_ITEM__" style={{ fontStyle: "", color: "var(--red)", fontWeight: "bold" }}>
+                  ➕ (+ Masukan Barang Baru...)
                 </option>
               </select>
             ) : (
