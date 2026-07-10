@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
@@ -7,7 +7,7 @@ export default function Register() {
   const [form, setForm] = useState({
     nama: "",
     username: "",
-    role: "operator",
+    role: "operator", // Peran default awal
     password: "",
     confirmPassword: "",
   });
@@ -28,10 +28,9 @@ export default function Register() {
     setSuccess("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // validasi sederhana
     if (
       !form.nama ||
       !form.username ||
@@ -48,6 +47,8 @@ export default function Register() {
     }
 
     try {
+      setError("");
+      setSuccess("");
       setLoading(true);
 
       const res = await fetch("http://localhost:1337/api/auth/register", {
@@ -63,6 +64,13 @@ export default function Register() {
         }),
       });
 
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(
+          `Server merespons dengan format non-JSON (Status: ${res.status}).`
+        );
+      }
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -70,14 +78,15 @@ export default function Register() {
         return;
       }
 
-      setSuccess("Registrasi berhasil");
+      setSuccess("Registrasi berhasil! Mengalihkan ke halaman login...");
 
-      // redirect ke login setelah 1.5 detik
       setTimeout(() => {
         navigate("/login");
       }, 1500);
-    } catch (err) {
-      setError("Server tidak dapat dihubungi");
+
+    } catch (err: any) {
+      console.error("Register Error:", err);
+      setError(err.message || "Server tidak dapat dihubungi");
     } finally {
       setLoading(false);
     }
@@ -102,16 +111,19 @@ export default function Register() {
           borderRadius: "12px",
         }}
       >
-        <h1 style={{ marginBottom: "20px" }}>Register Account</h1>
+        <h1 style={{ marginBottom: "20px", fontSize: "24px", fontWeight: "bold" }}>
+          Register Account
+        </h1>
 
         <form onSubmit={handleSubmit}>
           <input
             type="text"
             name="nama"
-            placeholder="Nama"
+            placeholder="Nama Lengkap"
             value={form.nama}
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading}
           />
 
           <input
@@ -121,16 +133,23 @@ export default function Register() {
             value={form.username}
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading}
           />
 
+          {/* 🟢 PENYESUAIAN ROLE: Menghilangkan logistic, menggantinya dengan procurement agar klop dengan Dashboard.tsx */}
           <select
             name="role"
             value={form.role}
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading}
           >
-            <option value="operator">Operator</option>
-            <option value="admin">Admin</option>
+            <option value="operator">Operator Gudang</option>
+            <option value="admin">Admin Administrasi</option>
+            <option value="superadmin">Superadmin System</option>
+            <option value="qc">Quality Control (QC)</option>
+            <option value="procurement">Procurement (Pengadaan)</option>
+            <option value="manager">Manager Gudang</option>
           </select>
 
           <input
@@ -140,6 +159,7 @@ export default function Register() {
             value={form.password}
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading}
           />
 
           <input
@@ -149,17 +169,18 @@ export default function Register() {
             value={form.confirmPassword}
             onChange={handleChange}
             style={inputStyle}
+            disabled={loading}
           />
 
           {error && (
-            <p style={{ color: "#f87171", marginBottom: "10px" }}>
-              {error}
+            <p style={{ color: "#f87171", marginBottom: "10px", fontSize: "14px" }}>
+              ⚠️ {error}
             </p>
           )}
 
           {success && (
-            <p style={{ color: "#4ade80", marginBottom: "10px" }}>
-              {success}
+            <p style={{ color: "#4ade80", marginBottom: "10px", fontSize: "14px" }}>
+              ✅ {success}
             </p>
           )}
 
@@ -169,26 +190,34 @@ export default function Register() {
             style={{
               width: "100%",
               padding: "12px",
-              background: "#2563eb",
+              background: loading ? "#4b5563" : "#2563eb",
               border: "none",
               color: "white",
               borderRadius: "8px",
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              transition: "background 0.2s",
             }}
           >
-            {loading ? "Loading..." : "Daftar"}
+            {loading ? "Memproses..." : "Daftar Akun"}
           </button>
         </form>
 
-        <p style={{ marginTop: "15px", fontSize: "14px" }}>
-          Sudah punya akun? <Link to="/login">Login</Link>
+        <p style={{ marginTop: "15px", fontSize: "14px", color: "#9ca3af" }}>
+          Sudanya punya akun?{" "}
+          <Link to="/login" style={{ color: "#3b82f6", textDecoration: "none", fontWeight: "bold" }}>
+            Login di sini
+          </Link>
         </p>
       </div>
     </div>
   );
 }
 
-const inputStyle = {
+// =========================================================
+// SAFE INLINE STYLES FOR TYPESCRIPT
+// =========================================================
+const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "12px",
   marginBottom: "14px",
@@ -196,5 +225,5 @@ const inputStyle = {
   border: "1px solid #374151",
   background: "#111827",
   color: "white",
-  boxSizing: "border-box" as const,
+  boxSizing: "border-box",
 };

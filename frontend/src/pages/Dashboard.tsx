@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import AdminDashboard from "./AdminDashboard";
 import OperatorDashboard from "./OperatorDashboard";
+import SuperadminDashboard from "./SuperAdminDashboard"; 
+import ManagerDashboard from "./ManagerDashboard";       
+import ProcurementDashboard from "./ProcurenmentDashboard"; 
+import QcDashboard from "./QCDashboard";               
 
 export default function Dashboard() {
   const { token, user, logout } = useAuth();
@@ -9,13 +13,6 @@ export default function Dashboard() {
   const [data, setData] = useState<any[]>([]);
   const [systemStatus, setSystemStatus] = useState("checking");
   const [approvedIds, setApprovedIds] = useState<any[]>([]);
-
-  // State Form Input Operator
-  const [reqBarang, setReqBarang] = useState("");
-  const [reqJumlah, setReqJumlah] = useState("");
-  const [prodBarang, setProdBarang] = useState("");
-  const [prodBerhasil, setProdBerhasil] = useState("");
-  const [prodReject, setProdReject] = useState("");
 
   // =========================================================
   // FETCH DATA GLOBAL
@@ -54,7 +51,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================================================
-  // HANDLER SIMPAN / UPDATE DATA (DIPERBARUI 🟢)
+  // HANDLER ACTION UNTUK KOMPONEN ANAK
   // =========================================================
   const handleAdd = async (item: any) => {
     try {
@@ -65,9 +62,7 @@ export default function Dashboard() {
         tanggal: item.tanggal || new Date().toISOString()
       };
 
-      // 🟢 JIKA TERDETEKSI UPDATE QTY (Barang sudah ada di database)
       if (item.isUpdateQty && item._id) {
-        // Hapus property pembantu sebelum dikirim ke backend agar bersih
         delete payload.isUpdateQty;
 
         const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
@@ -89,9 +84,7 @@ export default function Dashboard() {
         } else {
           console.error("Gagal mengupdate kuantitas stok di database");
         }
-      } 
-      // ➕ JIKA BARANG BARU (Aksi POST biasa)
-      else {
+      } else {
         const res = await fetch("http://localhost:1337/api/add", {
           method: "POST",
           headers: {
@@ -112,115 +105,88 @@ export default function Dashboard() {
     }
   };
 
-  // =========================================================
-  // LOGIKA ALUR 1 & 2
-  // =========================================================
-  const handleOperatorRequestBahan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reqBarang || !reqJumlah) return alert("Isi nama bahan dan jumlah!");
-
-    await handleAdd({
-      barang: reqBarang,
-      in: 0,
-      out: Number(reqJumlah),
-      stage: "Request Bahan", 
-      statusProduksi: "Pending", 
-    });
-
-    alert(`Request bahan ${reqBarang} berhasil dikirim!`);
-    setReqBarang("");
-    setReqJumlah("");
-  };
-
-  const handleAdminApproveBahan = async (item: any) => {
+  // Handler Aksi Spesifik Manager
+  const handleManagerApprove = async (item: any) => {
+    if (!item._id) return;
     try {
-      if (item._id) {
-        const resUpdate = await fetch(`http://localhost:1337/api/data/${item._id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ statusProduksi: "Disetujui" }),
-        });
-
-        if (!resUpdate.ok) console.error("Gagal memperbarui status request di database");
-
+      const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusProduksi: "Rilis Resmi Manager" }),
+      });
+      if (res.ok) {
         setApprovedIds((prev) => [...prev, item._id]);
+        fetchData();
       }
-      alert(`Validasi Berhasil!`);
-      fetchData();
     } catch (err) {
-      console.error("Gagal memproses validasi bahan:", err);
+      console.error("Manager gagal approve:", err);
     }
   };
 
-  const handleOperatorInputHasil = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prodBarang || !prodBerhasil || !prodReject) return alert("Lengkapi laporan produksi!");
-
-    await handleAdd({
-      barang: prodBarang,
-      in: Number(prodBerhasil),
-      out: 0,
-      reject: Number(prodReject),
-      stage: "Laporan Produksi", 
-      statusProduksi: "Pending" 
-    });
-
-    alert(`Laporan hasil produksi ${prodBarang} terkirim ke Admin!`);
-    setProdBarang("");
-    setProdBerhasil("");
-    setProdReject("");
+  const handleManagerReject = async (item: any) => {
+    if (!item._id) return;
+    try {
+      const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusProduksi: "Ditolak Manager" }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Manager gagal reject:", err);
+    }
   };
 
-  const handleAdminApproveHasil = async (item: any) => {
+  // Handler Aksi Spesifik Quality Control (QC)
+  const handleQCApprove = async (item: any) => {
+    if (!item._id) return;
     try {
-      if (item.in > 0) {
-        await handleAdd({
-          barang: item.barang,
-          in: item.in,
-          out: 0,
-          stage: "Finish Good",
-          statusProduksi: "Selesai",
-          operatorName: item.operatorName
-        });
-      }
-      if (item.reject > 0) {
-        await handleAdd({
-          barang: `${item.barang} (Cacat Produksi)`,
-          in: 0,
-          out: 0,
-          reject: item.reject,
-          stage: "Proses",
-          statusProduksi: "Selesai",
-          operatorName: item.operatorName
-        });
-      }
-
-      if (item._id) {
-        const resUpdate = await fetch(`http://localhost:1337/api/data/${item._id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ statusProduksi: "Selesai" }),
-        });
-
-        if (!resUpdate.ok) console.error("Gagal memperbarui status laporan di database");
+      const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusProduksi: "Lolos QC (Pass)" }),
+      });
+      if (res.ok) {
         setApprovedIds((prev) => [...prev, item._id]);
+        fetchData();
       }
-
-      alert(`Laporan Produksi Ter-validasi!`);
-      fetchData();
     } catch (err) {
-      console.error("Gagal memproses validasi laporan hasil:", err);
+      console.error("QC gagal approve:", err);
+    }
+  };
+
+  const handleQCReject = async (item: any) => {
+    if (!item._id) return;
+    try {
+      const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusProduksi: "Gagal Standar (Rejected)" }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error("QC gagal reject:", err);
     }
   };
 
   // =========================================================
-  // UTILITIES & FILTERS
+  // UTILITIES & DATA PIPELINES
   // =========================================================
   const getTotal = (arr: any[]) =>
     arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
@@ -233,13 +199,140 @@ export default function Dashboard() {
     });
   };
 
+  // Klasifikasi data berdasarkan tahapan alur logistik
   const warehouseData = data.filter((d) => d.stage === "Warehouse RM");
-  const prosesData = data.filter((d) => d.stage === "Proses");
+  const prosesData = data.filter((d) => d.stage === "Proses Produksi" || d.stage === "Proses");
   const finishData = data.filter((d) => d.stage === "Finish Good");
-  const allBahanRequests = data.filter((d) => d.stage === "Request Bahan");
-  const allHasilRequests = data.filter((d) => d.stage === "Laporan Produksi");
-  const pendingBahanRequests = allBahanRequests.filter((d) => d.statusProduksi === "Pending");
-  const pendingHasilRequests = allHasilRequests.filter((d) => d.statusProduksi === "Pending");
+  
+  // Antrean Dinamis untuk Dashboard Tertentu
+  const pendingBahanRequests = data.filter((d) => d.stage === "Request Bahan" && d.statusProduksi === "Pending");
+  const pendingHasilRequests = data.filter((d) => d.stage === "Laporan Produksi" && d.statusProduksi === "Pending");
+  const pendingManagerRequests = data.filter((d) => d.statusProduksi === "Pending Admin" || d.statusProduksi === "Pending");
+  const pendingQCRequests = data.filter((d) => d.statusProduksi === "Pending Hasil Admin" || d.statusProduksi === "Pending");
+
+  // =========================================================
+  // ROUTER SWITCH DASHBOARD BERDASARKAN ROLE
+  // =========================================================
+  const renderRoleDashboard = () => {
+    const currentRole = user?.role?.toLowerCase();
+
+    switch (currentRole) {
+      case "admin":
+        return (
+          <AdminDashboard 
+            masterData={data}
+            warehouseData={warehouseData}
+            prosesData={prosesData}
+            finishData={finishData}
+            pendingBahanRequests={pendingBahanRequests}
+            pendingHasilRequests={pendingHasilRequests}
+            approvedIds={approvedIds}
+            getTotal={getTotal}
+            formatTanggalTabel={formatTanggalTabel}
+            handleAdminApproveBahan={handleAdminApproveBahan} // Gunakan handler bawaan Anda
+            handleAdminApproveHasil={handleAdminApproveHasil} // Gunakan handler bawaan Anda
+            handleAdd={handleAdd}
+          />
+        );
+
+      case "operator":
+        return (
+          <OperatorDashboard 
+            masterData={data}
+            warehouseData={warehouseData}
+            prosesData={prosesData}
+            finishData={finishData}
+            getTotal={getTotal}
+            formatTanggalTabel={formatTanggalTabel}
+            handleOperatorSubmitBahan={handleAdd} // Pemetaan aksi form request bahan baku
+            handleOperatorSubmitHasil={handleAdd} // Pemetaan aksi form hasil output produksi
+          />
+        );
+
+      case "superadmin":
+        return (
+          <SuperadminDashboard 
+            masterData={data}
+            warehouseData={warehouseData}
+            prosesData={prosesData}
+            finishData={finishData}
+            formatTanggalTabel={formatTanggalTabel}
+          />
+        );
+
+      case "manager":
+        return (
+          <ManagerDashboard 
+            masterData={data}
+            warehouseData={warehouseData}
+            prosesData={prosesData}
+            finishData={finishData}
+            pendingManagerRequests={pendingManagerRequests}
+            approvedIds={approvedIds}
+            getTotal={getTotal}
+            formatTanggalTabel={formatTanggalTabel}
+            handleManagerApprove={handleManagerApprove}
+            handleManagerReject={handleManagerReject}
+          />
+        );
+
+      case "procurement":
+        return (
+          <ProcurementDashboard 
+            warehouseData={warehouseData}
+            handleAdd={handleAdd}
+            formatTanggalTabel={formatTanggalTabel}
+          />
+        );
+
+      case "qc":
+        return (
+          <QcDashboard 
+            masterData={data}
+            prosesData={prosesData}
+            finishData={finishData}
+            pendingQCRequests={pendingQCRequests}
+            approvedIds={approvedIds}
+            formatTanggalTabel={formatTanggalTabel}
+            handleQCApprove={handleQCApprove}
+            handleQCReject={handleQCReject}
+          />
+        );
+
+      default:
+        return (
+          <div style={{ color: "white", padding: "40px", textAlign: "center", background: "#1f2937", borderRadius: "8px", margin: "20px" }}>
+            <h3>⚠️ Akses Terbatas</h3>
+            <p style={{ color: "#9ca3af" }}>Role akun "{user?.role}" belum dikonfigurasi di sistem.</p>
+          </div>
+        );
+    }
+  };
+
+  // Handler Placeholder warisan backend untuk Admin Dashboard
+  async function handleAdminApproveBahan(item: any) {
+    if (item._id) {
+      await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ statusProduksi: "Disetujui" }),
+      });
+      setApprovedIds((prev) => [...prev, item._id]);
+    }
+    fetchData();
+  }
+
+  async function handleAdminApproveHasil(item: any) {
+    if (item._id) {
+      await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ statusProduksi: "Selesai" }),
+      });
+      setApprovedIds((prev) => [...prev, item._id]);
+    }
+    fetchData();
+  }
 
   return (
     <div className="wms-root">
@@ -252,53 +345,19 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="wms-header-right">
-          <div className="wms-status-dot" style={{ color: systemStatus === "online" ? "var(--green)" : "var(--red)" }}>
+          <div className="wms-status-dot" style={{ color: systemStatus === "online" ? "var(--green, #10b981)" : "var(--red, #ef4444)" }}>
             {systemStatus === "online" ? "SYSTEM ONLINE" : "CHECKING..."}
           </div>
           <div className="wms-user-info">
             <span className="wms-user-name">{user?.nama}</span>
-            <span className="wms-user-role" style={{ color: "var(--yellow)", fontWeight: "bold" }}> [{user?.role}]</span>
+            <span className="wms-user-role" style={{ color: "var(--yellow, #eab308)", fontWeight: "bold" }}> [{user?.role}]</span>
           </div>
           <button className="wms-logout-btn" onClick={logout}>KELUAR</button>
         </div>
       </header>
 
-      {/* ── PERCABANGAN INTERFACE BERDASARKAN ROLE ── */}
-      {user?.role === "admin" ? (
-        <AdminDashboard 
-          warehouseData={warehouseData}
-          prosesData={prosesData}
-          finishData={finishData}
-          pendingBahanRequests={pendingBahanRequests}
-          pendingHasilRequests={pendingHasilRequests}
-          approvedIds={approvedIds}
-          getTotal={getTotal}
-          formatTanggalTabel={formatTanggalTabel}
-          handleAdminApproveBahan={handleAdminApproveBahan}
-          handleAdminApproveHasil={handleAdminApproveHasil}
-          handleAdd={handleAdd}
-        />
-      ) : (
-        <OperatorDashboard 
-          allBahanRequests={allBahanRequests}
-          allHasilRequests={allHasilRequests}
-          warehouseData={warehouseData}
-          finishData={finishData}
-          reqBarang={reqBarang}
-          setReqBarang={setReqBarang}
-          reqJumlah={reqJumlah}
-          setReqJumlah={setReqJumlah}
-          prodBarang={prodBarang}
-          setProdBarang={setProdBarang}
-          prodBerhasil={prodBerhasil}
-          setProdBerhasil={setProdBerhasil}
-          prodReject={prodReject}
-          setProdReject={setProdReject}
-          handleOperatorRequestBahan={handleOperatorRequestBahan}
-          handleOperatorInputHasil={handleOperatorInputHasil}
-          formatTanggalTabel={formatTanggalTabel}
-        />
-      )}
+      {/* ── EKSEKUSI FUNGSI ROUTER SWITCH ROLE ── */}
+      {renderRoleDashboard()}
     </div>
   );
 }

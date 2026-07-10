@@ -4,30 +4,43 @@ import "./Form.css";
 const today = new Date().toISOString().split("T")[0];
 
 interface FormProps {
-  onAdd: (item: any) => void;
-  warehouseData: any[]; // Data dengan stage: "Warehouse RM"
-  finishData?: any[];    // Data dengan stage: "Finish Good"
+  onSuccess: () => void; // 🟢 Diubah jadi onSuccess untuk mentrigger refresh data tabel di dashboard induk
+  warehouseData: any[]; 
+  finishData?: any[];    
+  processData?: any[];   
 }
 
-export default function Form({ onAdd, warehouseData = [], finishData = [] }: FormProps) {
+export default function Form({ onSuccess, warehouseData = [], finishData = [], processData = [] }: FormProps) {
+  // Ambil data session user dari localStorage
+  const userRole = localStorage.getItem("role") || "operator";
+  const userNama = localStorage.getItem("nama") || "Staff Lapangan";
+
   const [form, setForm] = useState({
     tanggal: today,
-    barang:   "", 
-    stage:   "Warehouse RM",
-    in:      "" as string | number,
-    out:     "" as string | number,
+    barang: "",
+    stage: "Warehouse RM",
+    in: "" as string | number,
+    out: "" as string | number,
+    reject: "" as string | number,
   });
 
   const [isNewItem, setIsNewItem] = useState(false);
+  const [loading, setLoading] = useState(false); // 🟢 State loading saat request API
 
-  // Ambil list nama barang unik berdasarkan STAGE yang sedang aktif dipilih
   const getUniqueItemsByStage = () => {
+    // 🟢 Ditambahkan fallback penanganan jika array bernilai undefined/null saat fetch delay
+    const safeWarehouse = warehouseData || [];
+    const safeFinish = finishData || [];
+    const safeProcess = processData || [];
+
     if (form.stage === "Warehouse RM") {
-      return Array.from(new Set(warehouseData.map((item) => item.barang).filter(Boolean)));
+      return Array.from(new Set(safeWarehouse.map((item) => item.barang).filter(Boolean)));
     } else if (form.stage === "Finish Good") {
-      return Array.from(new Set(finishData.map((item) => item.barang).filter(Boolean)));
+      return Array.from(new Set(safeFinish.map((item) => item.barang).filter(Boolean)));
+    } else if (form.stage === "Proses") {
+      return Array.from(new Set(safeProcess.map((item) => item.barang).filter(Boolean)));
     } else {
-      return Array.from(new Set([...warehouseData, ...finishData].map((item) => item.barang).filter(Boolean)));
+      return Array.from(new Set([...safeWarehouse, ...safeFinish, ...safeProcess].map((item) => item.barang).filter(Boolean)));
     }
   };
 
@@ -54,12 +67,14 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
     } else {
       setForm({
         ...form,
-        [name]: name === "in" || name === "out" ? (value === "" ? "" : Number(value)) : value,
+        [name]: name === "in" || name === "out" || name === "reject" 
+          ? (value === "" ? "" : Number(value)) 
+          : value,
       });
     }
   };
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!form.barang.trim()) {
       alert("Nama barang tidak boleh kosong!");
@@ -69,48 +84,98 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
     const namaBarangInput = form.barang.trim();
     const currentStage = form.stage;
 
-    // 🟢 LOGIKA DETEKSI BARANG DUPLIKAT/EKSIS
-    // Kita cari apakah barang dengan nama & stage yang sama sudah pernah diinput sebelumnya
-    const currentDataPool = currentStage === "Warehouse RM" ? warehouseData : finishData;
+    // Tentukan data pool pembanding berdasarkan stage aktif
+    const safeWarehouse = warehouseData || [];
+    const safeFinish = finishData || [];
+    const safeProcess = processData || [];
+    let currentDataPool = safeWarehouse;
+    if (currentStage === "Finish Good") currentDataPool = safeFinish;
+    if (currentStage === "Proses") currentDataPool = safeProcess;
+
     const existingItem = currentDataPool.find(
       (item) => item.barang.toLowerCase() === namaBarangInput.toLowerCase()
     );
 
-    let payload: any = {
-      ...form,
-      barang: namaBarangInput,
-      in: form.in === "" ? 0 : Number(form.in),
-      out: form.out === "" ? 0 : Number(form.out),
-      statusProduksi: "Selesai"
-    };
+    // Otomatisasi status approval: Jika tipenya 'Request Bahan', statusnya 'Pending' agar divalidasi admin
+    const determinedStatus = currentStage === "Request Bahan" ? "Pending" : "Selesai";
 
-    if (existingItem && !isNewItem) {
-      // ⚠️ JIKA BARANG SUDAH ADA: Kita kirimkan ID data lama agar backend tahu ini aksi UPDATE kuantitas
-      payload._id = existingItem._id; 
-      payload.isUpdateQty = true; // Flag pembantu untuk backend/handler jika diperlukan
-      
-      // Akumulasikan nilai IN dan OUT yang baru dengan nilai yang sudah ada di DB
-      payload.in = Number(existingItem.in || 0) + Number(payload.in);
-      payload.out = Number(existingItem.out || 0) + Number(payload.out);
-      
-      alert(`Stok barang "${namaBarangInput}" di ${currentStage} berhasil di-update (Kuantitas ditambahkan)!`);
-    } else {
-      // ✨ JIKA BARANG BENAR-BENAR BARU
-      alert(`Berhasil membuat master barang baru "${namaBarangInput}" di ${currentStage}!`);
+    const numIn = form.in === "" ? 0 : Number(form.in);
+    const numOut = form.out === "" ? 0 : Number(form.out);
+    const numReject = form.reject === "" ? 0 : Number(form.reject);
+
+    if (numIn === 0 && numOut === 0 && numReject === 0) {
+      alert("Peringatan: Nilai IN, OUT, dan REJECT tidak boleh semuanya kosong atau bernilai 0.");
+      return;
     }
 
-    // Panggil fungsi onAdd (yang memicu handleAdd di Dashboard.tsx)
-    onAdd(payload);
-    
-    // Reset Form
-    setForm({
-      tanggal: today,
-      barang: "",
-      stage: "Warehouse RM",
-      in: "",
-      out: "",
-    });
-    setIsNewItem(false);
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+
+      let res;
+      // Kasus A: Jika barang sudah ada dan ini bukan paksaan barang baru, gunakan metode PUT (Update)
+      if (existingItem && !isNewItem) {
+        // Akumulasikan nilai lama dengan input transaksi baru
+        const payloadUpdate = {
+          in: Number(existingItem.in || 0) + numIn,
+          out: Number(existingItem.out || 0) + numOut,
+          reject: Number(existingItem.reject || 0) + numReject,
+          statusProduksi: determinedStatus
+        };
+
+        res = await fetch(`http://localhost:1337/api/data/${existingItem._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(payloadUpdate)
+        });
+
+        if (!res.ok) throw new Error("Gagal mengupdate akumulasi stok.");
+        alert(`Stok barang "${namaBarangInput}" di ${currentStage} berhasil di-update!`);
+      } 
+      // Kasus B: Jika barang baru atau sengaja dimasukkan sebagai baris data baru, gunakan POST (Add)
+      else {
+        const payloadNew = {
+          barang: namaBarangInput,
+          stage: currentStage,
+          in: numIn,
+          out: numOut,
+          reject: numReject,
+          statusProduksi: determinedStatus
+        };
+
+        res = await fetch("http://localhost:1337/api/data/add", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(payloadNew)
+        });
+
+        if (!res.ok) throw new Error("Gagal menambahkan master data baru.");
+        alert(`Berhasil membuat master barang baru "${namaBarangInput}" di ${currentStage}!`);
+      }
+
+      // Reset Form & Memicu penarikan ulang data tabel di dashboard induk
+      setForm({
+        tanggal: today,
+        barang: "",
+        stage: "Warehouse RM",
+        in: "",
+        out: "",
+        reject: "",
+      });
+      setIsNewItem(false);
+      onSuccess(); // 🟢 Beri tahu induk komponen bahwa data telah berubah
+
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -124,25 +189,31 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
           </svg>
           INPUT / UPDATE STOK MASTER
         </div>
-        <span className="wms-form-header-tag">FORM-001</span>
+        <span className="wms-form-header-tag">ROLE: {userRole.toUpperCase()}</span>
       </div>
 
       <form className="wms-form" onSubmit={handleSubmit}>
         <div className="wms-form-grid">
 
+          {/* 📅 TANGGAL */}
           <div className="wms-field">
             <label className="wms-label">TANGGAL</label>
-            <input className="wms-input" type="date" name="tanggal" value={form.tanggal} onChange={handleChange} />
+            <input className="wms-input" type="date" name="tanggal" value={form.tanggal} onChange={handleChange} disabled={loading} />
           </div>
 
+          {/* 🗂️ STAGE (KATEGORI STOK) */}
           <div className="wms-field">
             <label className="wms-label">STAGE (KATEGORI STOK)</label>
-            <select className="wms-select" name="stage" value={form.stage} onChange={handleChange}>
+            <select className="wms-select" name="stage" value={form.stage} onChange={handleChange} disabled={loading}>
               <option value="Warehouse RM">Warehouse RM (Bahan Baku)</option>
+              <option value="Proses">Proses (Lini Produksi)</option>
               <option value="Finish Good">Finish Good (Produk Jadi)</option>
+              <option value="Request Bahan">⚠️ Request Bahan (Butuh Approval)</option>
+              <option value="Laporan Produksi">📋 Laporan Produksi</option>
             </select>
           </div>
 
+          {/* 📦 BARANG */}
           <div className="wms-field">
             <label className="wms-label">BARANG</label>
             {!isNewItem ? (
@@ -152,18 +223,19 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
                 value={form.barang} 
                 onChange={handleChange}
                 style={{ width: "100%" }}
+                disabled={loading}
               >
-                <option value="">
-                  {form.stage === "Warehouse RM" ? "-- Pilih Bahan Baku Eksis --" : "-- Pilih Produk Jadi Eksis --"}
-                </option>
+                <option value="">-- Pilih Barang Eksis --</option>
                 {uniqueItems.map((namaBarang, idx) => (
                   <option key={idx} value={namaBarang}>
                     {namaBarang}
                   </option>
                 ))}
-                <option value="__NEW_ITEM__" style={{ fontStyle: "", color: "var(--red)", fontWeight: "bold" }}>
-                  ➕ (+ Masukan Barang Baru...)
-                </option>
+                {userRole !== "manager" && (
+                  <option value="__NEW_ITEM__" style={{ color: "var(--red)", fontWeight: "bold" }}>
+                    ➕ (+ Masukan Barang Baru...)
+                  </option>
+                )}
               </select>
             ) : (
               <div style={{ display: "flex", gap: "5px", width: "100%" }}>
@@ -171,16 +243,18 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
                   className="wms-input" 
                   type="text" 
                   name="barang" 
-                  placeholder={form.stage === "Warehouse RM" ? "Ketik nama bahan baku baru..." : "Ketik nama produk jadi baru..."} 
+                  placeholder={form.stage === "Warehouse RM" ? "Nama bahan baku baru..." : "Nama produk baru..."} 
                   value={form.barang} 
                   onChange={(e) => setForm({ ...form, barang: e.target.value })} 
                   autoComplete="off"
+                  disabled={loading}
                   autoFocus
                 />
                 <button 
                   type="button" 
                   onClick={() => setIsNewItem(false)} 
                   style={{ background: "#e74c3c", color: "white", border: "none", padding: "0 10px", cursor: "pointer", borderRadius: "4px", fontSize: "12px" }}
+                  disabled={loading}
                 >
                   Batal
                 </button>
@@ -188,19 +262,56 @@ export default function Form({ onAdd, warehouseData = [], finishData = [] }: For
             )}
           </div>
 
+          {/* 📥 IN (TAMBAH QTY) */}
           <div className="wms-field">
             <label className="wms-label">IN (TAMBAH QTY)</label>
-            <input className="wms-input wms-input-green" type="number" name="in" value={form.in} placeholder="0" onChange={handleChange} />
+            <input 
+              className="wms-input wms-input-green" 
+              type="number" 
+              name="in" 
+              value={form.in} 
+              placeholder="0" 
+              onChange={handleChange} 
+              disabled={form.stage === "Request Bahan" || loading} 
+            />
           </div>
 
+          {/* 📤 OUT (KURANG QTY) */}
           <div className="wms-field">
             <label className="wms-label">OUT (KURANG QTY)</label>
-            <input className="wms-input wms-input-red" type="number" name="out" value={form.out} placeholder="0" onChange={handleChange} />
+            <input 
+              className="wms-input wms-input-red" 
+              type="number" 
+              name="out" 
+              value={form.out} 
+              placeholder="0" 
+              onChange={handleChange} 
+              disabled={loading}
+            />
           </div>
 
+          {/* 🟠 REJECT (BARANG CACAT) */}
+          <div className="wms-field">
+            <label className="wms-label">REJECT (QTY CACAT)</label>
+            <input 
+              className="wms-input wms-input-orange" 
+              type="number" 
+              name="reject" 
+              value={form.reject} 
+              placeholder="0" 
+              onChange={handleChange}
+              disabled={form.stage === "Warehouse RM" || loading}
+            />
+          </div>
+
+          {/* 🚀 SUBMIT BUTTON */}
           <div className="wms-field wms-field-submit">
-            <button className="wms-btn" type="submit">
-              SINKRONKAN STOK
+            <button 
+              className="wms-btn" 
+              type="submit"
+              disabled={userRole === "manager" || loading}
+            >
+              {userRole === "manager" ? "VIEW ONLY" : (loading ? "MENSINKRONKAN..." : "SINKRONKAN STOK")}
             </button>
           </div>
 

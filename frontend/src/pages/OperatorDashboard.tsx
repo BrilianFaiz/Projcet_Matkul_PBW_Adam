@@ -1,221 +1,306 @@
-import React from "react";
-import Table from "../components/Table";
+import React, { useState } from "react";
 
 interface OperatorDashboardProps {
-  allBahanRequests: any[];
-  allHasilRequests: any[];
+  masterData: any[];
   warehouseData: any[];
-  finishData: any[]; // 🟢 1. Menambahkan prop finishData untuk produk jadi
-  reqBarang: string;
-  setReqBarang: (v: string) => void;
-  reqJumlah: string;
-  setReqJumlah: (v: string) => void;
-  prodBarang: string;
-  setProdBarang: (v: string) => void;
-  prodBerhasil: string;
-  setProdBerhasil: (v: string) => void;
-  prodReject: string;
-  setProdReject: (v: string) => void;
-  handleOperatorRequestBahan: (e: React.FormEvent) => Promise<void>;
-  handleOperatorInputHasil: (e: React.FormEvent) => Promise<void>;
+  prosesData: any[];
+  finishData: any[];
+  getTotal: (arr: any[]) => number;
   formatTanggalTabel: (item: any) => string;
+  handleOperatorSubmitBahan: (item: any) => Promise<void>; // Submit request bahan baku
+  handleOperatorSubmitHasil: (item: any) => Promise<void>; // Submit hasil produksi
 }
 
 export default function OperatorDashboard({
-  allBahanRequests,
-  allHasilRequests,
-  warehouseData,
-  finishData = [], // 🟢 Default value array kosong menghindari error map jika data belum load
-  reqBarang,
-  setReqBarang,
-  reqJumlah,
-  setReqJumlah,
-  prodBarang,
-  setProdBarang,
-  prodBerhasil,
-  setProdBerhasil,
-  prodReject,
-  setProdReject,
-  handleOperatorRequestBahan,
-  handleOperatorInputHasil,
+  masterData = [],
+  warehouseData = [],
+  prosesData = [],
+  finishData = [],
+  getTotal,
   formatTanggalTabel,
+  handleOperatorSubmitBahan,
+  handleOperatorSubmitHasil,
 }: OperatorDashboardProps) {
-  
-  // 🟢 2. Filter list unik bahan mentah dari Warehouse RM (Alur 1)
-  const uniqueWarehouseItems = Array.from(
-    new Set(warehouseData.map((item) => item.barang).filter(Boolean))
-  );
 
-  // 🟢 3. Filter list unik produk jadi dari Finish Good (Alur 2)
-  const uniqueFinishItems = Array.from(
-    new Set(finishData.map((item) => item.barang).filter(Boolean))
-  );
+  // State Form Request Bahan Baku
+  const [bahanBarang, setBahanBarang] = useState("");
+  const [bahanJumlah, setBahanJumlah] = useState("");
+
+  // State Form Laporan Hasil Produksi
+  const [hasilBarang, setHasilBarang] = useState("");
+  const [hasilBagus, setHasilBagus] = useState("");
+  const [hasilReject, setHasilReject] = useState("");
+
+  // Handle pengajuan bahan baku
+  const onSubmitBahan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bahanBarang || !bahanJumlah) return alert("Semua kolom request bahan wajib diisi!");
+    
+    await handleOperatorSubmitBahan({
+      barang: bahanBarang,
+      out: Number(bahanJumlah),
+      in: 0,
+      stage: "Proses Produksi",
+      statusProduksi: "Pending Admin", // Menunggu validasi admin logistik
+    });
+
+    setBahanBarang("");
+    setBahanJumlah("");
+    alert("Permintaan bahan baku berhasil dikirim!");
+  };
+
+  // Handle pelaporan hasil produksi
+  const onSubmitHasil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hasilBarang || !hasilBagus) return alert("Nama produk dan jumlah berhasil wajib diisi!");
+
+    await handleOperatorSubmitHasil({
+      barang: hasilBarang,
+      in: Number(hasilBagus),
+      out: 0,
+      reject: Number(hasilReject) || 0,
+      stage: "Finish Good",
+      statusProduksi: "Pending Hasil Admin", // Menunggu validasi admin
+    });
+
+    setHasilBarang("");
+    setHasilBagus("");
+    setHasilReject("");
+    alert("Laporan hasil produksi berhasil dikirim!");
+  };
+
+  // Memfilter riwayat aktivitas khusus aktivitas produksi yang sedang berjalan
+  const aktivitasProses = prosesData || [];
 
   return (
-    <div className="operator-dashboard-layout">
-      <div className="wms-section-title" style={{ color: "white", marginBottom: "20px" }}>
-        <h3 style={{ margin: 0, fontSize: "22px", color: "var(--green)" }}>WORKSPACE: OPERATOR PRODUKSI LAPANGAN</h3>
-        <p style={{ color: "var(--text-dim)", fontSize: "13px" }}>Kelola pengajuan operational lapangan secara real-time ke Admin Gudang.</p>
+    <div style={{ 
+      padding: "40px", 
+      background: "#f8fafc", 
+      backgroundImage: "none", 
+      color: "#1e293b", 
+      minHeight: "100vh", 
+      width: "100%",
+      boxSizing: "border-box",
+      fontFamily: "'Inter', system-ui, sans-serif" 
+    }}>
+      
+      {/* 📄 HEADER PANEL */}
+      <div style={{ marginBottom: "32px" }}>
+        <h1 style={{ fontSize: "26px", fontWeight: "700", color: "#0f172a", margin: "0 0 6px 0", letterSpacing: "-0.5px" }}>
+          Operator Production Panel
+        </h1>
+        <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
+          Sistem pelaporan pemakaian material pabrik dan input hasil output batch produksi berkala.
+        </p>
       </div>
 
-      {/* 📝 ALUR 1: INPUT REQUEST BAHAN BAKU */}
-      <div className="wms-section" style={{ background: "rgba(255,255,255,0.02)", padding: "20px", border: "1px solid var(--border)", marginBottom: "25px" }}>
-        <h4 style={{ margin: "0 0 15px 0", color: "var(--yellow)" }}>📝 1. AJUKAN REQUEST BAHAN BAKU KE ADMIN</h4>
-        <form onSubmit={handleOperatorRequestBahan} style={{ display: "flex", gap: "12px" }}>
+      {/* 📊 FORM KANBAN GRID (Dua Kolom: Request & Report) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "24px", marginBottom: "32px" }}>
+        
+        {/* KOLOM 1: REQUEST BAHAN BAKU */}
+        <div style={sectionBoxStyle}>
+          <h3 style={{ ...sectionTitleStyle, color: "#d97706", marginBottom: "4px" }}>1. Request Bahan Baku</h3>
+          <p style={{ color: "#64748b", fontSize: "13px", margin: "0 0 20px 0" }}>Ambil material dari Warehouse RM untuk mulai produksi.</p>
           
-          {/* Dropdown Bahan Mentah (Membaca uniqueWarehouseItems) */}
-          <select 
-            value={reqBarang} 
-            onChange={(e) => setReqBarang(e.target.value)} 
-            style={{ flex: 2, padding: "11px 16px", background: "#ffffff", border: "1px solid var(--border)", color: "#1a2240", fontSize: "14px", outline: "none" }}
-          >
-            <option value="">-- Pilih Bahan Mentah --</option>
-            {uniqueWarehouseItems.map((namaBarang, idx) => (
-              <option key={idx} value={namaBarang}>
-                {namaBarang}
-              </option>
-            ))}
-          </select>
+          <form onSubmit={onSubmitBahan} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div>
+              <label style={labelStyle}>Nama Bahan Baku</label>
+              <input
+                type="text"
+                value={bahanBarang}
+                onChange={(e) => setBahanBarang(e.target.value)}
+                placeholder="Contoh: Semen Portland / Pasir Silika"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Jumlah Keluar (Out)</label>
+              <input
+                type="number"
+                value={bahanJumlah}
+                onChange={(e) => setBahanJumlah(e.target.value)}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+            <button type="submit" style={{ ...btnPrimaryStyle, background: "#d97706", marginTop: "8px" }}>
+              Ajukan Ambil Bahan
+            </button>
+          </form>
+        </div>
 
-          <input 
-            type="number" 
-            placeholder="Jumlah..." 
-            value={reqJumlah} 
-            onChange={(e) => setReqJumlah(e.target.value)} 
-            style={{ flex: 1, padding: "11px 16px", background: "#ffffff", border: "1px solid var(--border)", color: "#1a2240", fontSize: "14px", outline: "none" }} 
-          />
-          <button type="submit" style={{ padding: "11px 24px", background: "var(--yellow)", color: "var(--navy)", fontWeight: "bold", border: "none", cursor: "pointer", borderRadius: "4px" }}>KIRIM REQUEST</button>
-        </form>
-      </div>
-
-      {/* ⚠️ ALUR 2: INPUT LAPOR HASIL PRODUKSI */}
-      <div className="wms-section" style={{ background: "rgba(217, 64, 64, 0.02)", padding: "20px", border: "1px solid rgba(217, 64, 64, 0.3)", marginBottom: "25px" }}>
-        <h4 style={{ margin: "0 0 15px 0", color: "var(--red)" }}>⚠️ 2. LAPOR HASIL AKHIR PRODUKSI (TOTAL BERHASIL & TOTAL CACAT)</h4>
-        <form onSubmit={handleOperatorInputHasil} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        {/* KOLOM 2: LAPOR HASIL PRODUKSI */}
+        <div style={sectionBoxStyle}>
+          <h3 style={{ ...sectionTitleStyle, color: "#10b981", marginBottom: "4px" }}>2. Laporan Hasil Output</h3>
+          <p style={{ color: "#64748b", fontSize: "13px", margin: "0 0 20px 0" }}>Laporkan jumlah produk jadi yang selesai diproduksi.</p>
           
-          {/* 🟢 Dropdown Produk Jadi (Sekarang membaca DATA PRODUK JADI murni dari uniqueFinishItems) */}
-          <select 
-            value={prodBarang} 
-            onChange={(e) => setProdBarang(e.target.value)} 
-            style={{ flex: 2, padding: "11px 16px", background: "#ffffff", border: "1px solid var(--border)", color: "#1a2240", fontSize: "14px", outline: "none" }}
-          >
-            <option value="">-- Pilih Produk Jadi --</option>
-            {uniqueFinishItems.map((namaProduk, idx) => (
-              <option key={idx} value={namaProduk}>
-                {namaProduk}
-              </option>
-            ))}
-          </select>
+          <form onSubmit={onSubmitHasil} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div>
+              <label style={labelStyle}>Nama Produk Jadi (FG)</label>
+              <input
+                type="text"
+                value={hasilBarang}
+                onChange={(e) => setHasilBarang(e.target.value)}
+                placeholder="Contoh: Batako Tipe A / Paving Block"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Jumlah Bagus (In)</label>
+                <input
+                  type="number"
+                  value={hasilBagus}
+                  onChange={(e) => setHasilBagus(e.target.value)}
+                  placeholder="0"
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Jumlah Cacat (Reject)</label>
+                <input
+                  type="number"
+                  value={hasilReject}
+                  onChange={(e) => setHasilReject(e.target.value)}
+                  placeholder="0"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            <button type="submit" style={{ ...btnPrimaryStyle, background: "#10b981", marginTop: "8px" }}>
+              Laporkan Hasil Selesai
+            </button>
+          </form>
+        </div>
 
-          <input 
-            type="number" 
-            placeholder="Jumlah Berhasil..." 
-            value={prodBerhasil} 
-            onChange={(e) => setProdBerhasil(e.target.value)} 
-            style={{ flex: 1, padding: "11px 16px", background: "#ffffff", border: "1px solid var(--border)", color: "#1a2240", fontSize: "14px", outline: "none" }} 
-          />
-          <input 
-            type="number" 
-            placeholder="Jumlah Cacat/Reject..." 
-            value={prodReject} 
-            onChange={(e) => setProdReject(e.target.value)} 
-            style={{ flex: 1, padding: "11px 16px", background: "#ffffff", border: "1px solid var(--border)", color: "#1a2240", fontSize: "14px", outline: "none" }} 
-          />
-          <button type="submit" style={{ padding: "11px 24px", background: "var(--red)", color: "white", fontWeight: "bold", border: "none", cursor: "pointer", borderRadius: "4px", whiteSpace: "nowrap" }}>KIRIM REKAP HASIL</button>
-        </form>
       </div>
 
-      {/* TRACKING LIVE */}
-      <div className="wms-section" style={{ marginTop: "30px" }}>
-        <h3 style={{ color: "black", borderBottom: "2px solid var(--border)", paddingBottom: "10px", marginBottom: "20px" }}>
-          📋 TRACKING LIVE: RIWAYAT AKTIVITAS SAYA
+      {/* 📋 MONITORING LIVE BATCH PRODUKSI SAYA */}
+      <div style={sectionBoxStyle}>
+        <h3 style={{ ...sectionTitleStyle, marginBottom: "20px" }}>
+          Status Antrean Batch Produksi Berjalan ({aktivitasProses.length})
         </h3>
-
-        {/* Sub-Tabel Riwayat Request Bahan */}
-        <div style={{ marginBottom: "25px" }}>
-          <h4 style={{ color: "var(--yellow)", marginBottom: "10px" }}>• Riwayat Pengajuan Bahan Baku</h4>
-          {allBahanRequests.length === 0 ? (
-            <p style={{ color: "var(--text-dim)", fontStyle: "italic", fontSize: "13px" }}>Belum ada riwayat pengajuan bahan baku.</p>
-          ) : (
-            <div className="wms-table-responsive" style={{ background: "#ffffff", padding: "10px", border: "1px solid var(--border)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", color: "#1a2240", fontSize: "13px" }}>
-                <thead>
-                  <tr style={{ background: "rgba(0,0,0,0.05)", textAlign: "left", color: "#1a2240" }}>
-                    <th style={{ padding: "10px", width: "120px" }}>Tanggal</th>
-                    <th style={{ padding: "10px" }}>Nama Bahan</th>
-                    <th style={{ padding: "10px" }}>Jumlah Diminta</th>
-                    <th style={{ padding: "10px" }}>Status Validasi Admin</th>
+        
+        {aktivitasProses.length === 0 ? (
+          <p style={{ color: "#94a3b8", fontSize: "14px", margin: 0 }}>Tidak ada proses pemesanan/produksi aktif saat ini.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #edf2f7" }}>
+                  <th style={thStyle}>Waktu Mulai</th>
+                  <th style={thStyle}>Deskripsi Item</th>
+                  <th style={thStyle}>Kuantitas Alokasi</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Status Jalur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aktivitasProses.map((item, idx) => (
+                  <tr key={item._id || idx} style={trStyle}>
+                    <td style={tdStyle}>{typeof formatTanggalTabel === 'function' ? formatTanggalTabel(item) : "-"}</td>
+                    <td style={{ ...tdStyle, fontWeight: "500", color: "#0f172a" }}>{item.barang}</td>
+                    <td style={tdStyle}>
+                      {item.out > 0 ? (
+                        <span style={{ color: "#d97706" }}>{item.out} unit digunakan</span>
+                      ) : (
+                        <span style={{ color: "#10b981" }}>{item.in} unit diproses</span>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <span style={{
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        padding: "4px 10px",
+                        borderRadius: "6px",
+                        background: item.statusProduksi?.includes("Pending") ? "#fffbeb" : "#eff6ff",
+                        color: item.statusProduksi?.includes("Pending") ? "#d97706" : "#2563eb",
+                      }}>
+                        {item.statusProduksi || "Dalam Proses"}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {allBahanRequests.map((item, index) => (
-                    <tr key={item._id || index} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                      <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>{formatTanggalTabel(item)}</td>
-                      <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                      <td style={{ padding: "10px", color: "var(--yellow)", fontWeight: "bold" }}>{item.out} Pcs</td>
-                      <td style={{ padding: "10px" }}>
-                        <span style={{ 
-                          padding: "3px 8px", fontSize: "11px", fontWeight: "bold", borderRadius: "3px",
-                          background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(46,204,113,0.2)",
-                          color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--green)"
-                        }}>
-                          {item.statusProduksi === "Pending" ? "⏳ PENDING" : "✅ DISETUJUI"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Sub-Tabel Riwayat Laporan Produksi */}
-        <div style={{ marginBottom: "25px" }}>
-          <h4 style={{ color: "var(--blue)", marginBottom: "10px" }}>• Riwayat Laporan Hasil Produksi Akhir</h4>
-          {allHasilRequests.length === 0 ? (
-            <p style={{ color: "var(--text-dim)", fontStyle: "italic", fontSize: "13px" }}>Belum ada riwayat laporan hasil produksi.</p>
-          ) : (
-            <div className="wms-table-responsive" style={{ background: "#ffffff", padding: "10px", border: "1px solid var(--border)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", color: "#1a2240", fontSize: "13px" }}>
-                <thead>
-                  <tr style={{ background: "rgba(0,0,0,0.05)", textAlign: "left", color: "#1a2240" }}>
-                    <th style={{ padding: "10px", width: "120px" }}>Tanggal</th>
-                    <th style={{ padding: "10px" }}>Nama Produk</th>
-                    <th style={{ padding: "10px" }}>Jumlah Berhasil</th>
-                    <th style={{ padding: "10px" }}>Jumlah Reject</th>
-                    <th style={{ padding: "10px" }}>Status Gudang Utama</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allHasilRequests.map((item, index) => (
-                    <tr key={item._id || index} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                      <td style={{ padding: "10px", color: "#555555", fontWeight: "500" }}>{formatTanggalTabel(item)}</td>
-                      <td style={{ padding: "10px", color: "#1a2240", fontWeight: "500" }}>{item.barang}</td>
-                      <td style={{ padding: "10px", color: "var(--green)", fontWeight: "bold" }}>{item.in} Pcs</td>
-                      <td style={{ padding: "10px", color: "var(--red)", fontWeight: "bold" }}>{item.reject || 0} Pcs</td>
-                      <td style={{ padding: "10px" }}>
-                        <span style={{ 
-                          padding: "3px 8px", fontSize: "11px", fontWeight: "bold", borderRadius: "3px",
-                          background: item.statusProduksi === "Pending" ? "rgba(232,160,32,0.2)" : "rgba(52,152,219,0.2)",
-                          color: item.statusProduksi === "Pending" ? "rgba(180,110,10,1)" : "var(--blue)"
-                        }}>
-                          {item.statusProduksi === "Pending" ? "⏳ PROSES CHECK" : "📦 DIVALIDASI"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="wms-section" style={{ marginTop: "20px" }}>
-        <h4 style={{ margin: "0 0 15px 0", color: "black" }}>📋 4. DAFTAR BAHAN BAKU TERSEDIA DI GUDANG UTAMA</h4>
-        <Table data={warehouseData} />
-      </div>
     </div>
   );
 }
+
+// =========================================================
+// CLEAN SYSTEM STYLES (FLAT DESIGN, NO BACKGROUND GRID)
+// =========================================================
+const sectionBoxStyle: React.CSSProperties = {
+  background: "#ffffff",
+  padding: "28px",
+  borderRadius: "12px",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.015)",
+  border: "1px solid #e2e8f0",
+  boxSizing: "border-box"
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: "600",
+  color: "#0f172a",
+  margin: 0
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: "6px",
+  fontSize: "13px",
+  color: "#64748b",
+  fontWeight: "500",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 14px",
+  borderRadius: "8px",
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  color: "#0f172a",
+  fontSize: "14px",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const btnPrimaryStyle: React.CSSProperties = {
+  padding: "12px 20px",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  fontWeight: "600",
+  fontSize: "14px",
+  cursor: "pointer",
+};
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  textAlign: "left",
+  fontSize: "14px",
+};
+
+const thStyle: React.CSSProperties = {
+  padding: "12px 8px",
+  color: "#94a3b8",
+  fontWeight: "600",
+  fontSize: "12px",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px"
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: "16px 8px",
+  color: "#475569",
+  verticalAlign: "middle"
+};
+
+const trStyle: React.CSSProperties = {
+  borderBottom: "1px solid #f1f5f9",
+};

@@ -1,21 +1,20 @@
 require('dotenv').config({
   path: './mongo.env'
 });
-console.log("JWT:", process.env.JWT_SECRET);
-console.log("MONGO:", process.env.MONGO_URI);
+
+console.log("JWT Secret Loaded:", process.env.JWT_SECRET ? "YES" : "NO");
+console.log("MONGO URI Loaded:", process.env.MONGO_URI ? "YES" : "NO");
 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-const Transaksi = require('./models/Transaksi');
 const authRoutes = require('./routes/auth');
 const dataRoutes = require("./routes/data");
-const authMiddleware = require('./middleware/auth');
-const checkRole = require('./middleware/checkRole');
 
 const app = express();
 
+// Konfigurasi CORS
 app.use(cors({
   origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -23,41 +22,34 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// koneksi MongoDB
+// Koneksi MongoDB
 const dbURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/WMS';
 mongoose.connect(dbURI)
   .then(() => console.log('MongoDB Terhubung ✅'))
   .catch(err => console.log('MongoDB Error:', err));
 
-// routes auth
+// ==========================================
+// 🚀 DELEGASI ROUTER UTAMA
+// ==========================================
+
+// Menangani authentikasi & management user (register, login, me, users)
 app.use('/api/auth', authRoutes);
+
+// Menangani seluruh urusan transaksi (add, data, :id, approve)
+// Semua pembatasan 6 role sudah dihandle secara rapi di dalam file routes/data.js
 app.use('/api/data', dataRoutes);
 
-// tambah transaksi — operator & admin
-app.post('/api/add', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {
-  try {
-    const dataBaru = new Transaksi(req.body);
-    await dataBaru.save();
-    res.status(201).json({ message: 'Berhasil simpan!' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ==========================================
+// 🛠️ MAINTENANCE & HEALTH
+// ==========================================
 
-// ambil semua data — operator & admin
-app.get('/api/data', authMiddleware, checkRole('operator', 'admin'), async (req, res) => {
-  try {
-    const data = await Transaksi.find().sort({ createdAt: 1 });
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ message: 'Gagal mengambil data' });
-  }
-});
-
-// health check
+// Health Check untuk memantau status server & database
 app.get('/api/health', async (req, res) => {
   const state = mongoose.connection.readyState;
-  res.json({ status: state === 1 ? 'online' : 'offline' });
+  res.json({ 
+    status: state === 1 ? 'online' : 'offline',
+    database: state === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 const PORT = process.env.PORT || 1337;
