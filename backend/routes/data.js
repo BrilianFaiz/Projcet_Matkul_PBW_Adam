@@ -5,15 +5,18 @@ const Data = require("../models/Transaksi");
 const auth = require("../middleware/auth");
 const checkRole = require("../middleware/checkRole");
 
-// ➕ ADD DATA BARU (POST)
-// Mengizinkan Admin, Superadmin, Operator, Procurement, dan QC untuk menambah data transaksi sesuai areanya
+// =========================================================
+// ➕ 1. ADD DATA BARU (POST)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data
+// Perubahan: Mengubah rute dari "/add" menjadi "/" agar selaras dengan pemanggilan frontend
 router.post(
-  "/add", 
+  "/", 
   auth, 
   checkRole("admin", "superadmin", "operator", "procurement", "qc"), 
   async (req, res) => {
     try {
-      // 🟢 Penyempurnaan: Paksa 'operatorName' menggunakan nama asli dari user yang sedang login (aman dari manipulasi)
+      // Mengamankan 'operatorName' menggunakan nama dari token user login (mencegah manipulasi data)
       const payload = {
         ...req.body,
         operatorName: req.user.nama 
@@ -28,10 +31,13 @@ router.post(
   }
 );
 
-// 📋 GET ALL DATA
-// Semua role diberikan hak akses membaca data untuk kebutuhan transparansi dan pengisian dasbor masing-masing
+// =========================================================
+// 📋 2. GET ALL DATA (GET)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data
+// Perubahan: Mengubah rute dari "/data" menjadi "/" untuk menyelesaikan masalah Error 404
 router.get(
-  "/data", 
+  "/", 
   auth, 
   checkRole("superadmin", "admin", "operator", "manager", "procurement", "qc"), 
   async (req, res) => {
@@ -44,7 +50,10 @@ router.get(
   }
 );
 
-// 🔍 GET DATA BY ID
+// =========================================================
+// 🔍 3. GET DATA BY ID (GET)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data/:id
 router.get(
   "/:id", 
   auth, 
@@ -62,16 +71,18 @@ router.get(
   }
 );
 
-// 🔄 UPDATE DATA EKSIS / AKUMULASI STOK (PUT)
-// Dikunci ketat: Hanya Admin pusat dan Superadmin yang boleh mengubah master stok atau melakukan akumulasi
+// =========================================================
+// 🔄 4. UPDATE DATA EKSIS / AKUMULASI STOK & STATUS (PUT)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data/:id
+// Perubahan: Membuka izin bagi 'manager' dan 'qc' agar bisa memperbarui status dokumen/batch produksi
 router.put(
   "/:id", 
   auth, 
-  checkRole("admin", "superadmin"), 
+  checkRole("admin", "superadmin", "manager", "qc"), 
   async (req, res) => {
     try {
-      // Gunakan $set agar hanya memperbarui field yang dikirim dari frontend, 
-      // tanpa merusak field lain yang sudah ada di dokumen tersebut
+      // Menggunakan operator $set bawaan MongoDB agar perubahan bersifat parsial tanpa merusak field lain
       const updated = await Data.findByIdAndUpdate(
         req.params.id,
         { $set: req.body },
@@ -89,8 +100,10 @@ router.put(
   }
 );
 
-// ❌ DELETE DATA
-// Dikunci ketat: Hanya Superadmin yang memiliki wewenang menghapus jejak audit transaksi dari database
+// =========================================================
+// ❌ 5. DELETE DATA (DELETE)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data/:id
 router.delete(
   "/:id", 
   auth, 
@@ -101,15 +114,17 @@ router.delete(
       if (!deleted) {
         return res.status(404).json({ message: "Data tidak ditemukan" });
       }
-      res.json({ message: "Data berhasil dihapus" });
+      res.json({ message: "Data berhasil dihapus dari sistem" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   }
 );
 
-// ✔️ APPROVAL REQUEST OPERATOR
-// Hak persetujuan dipatok untuk Admin utama dan Superadmin.
+// =========================================================
+// ✔️ 6. APPROVAL REQUEST OPERATOR (POST)
+// =========================================================
+// Endpoint: http://localhost:1337/api/data/approve/:id
 router.post(
   "/approve/:id", 
   auth, 
@@ -119,14 +134,14 @@ router.post(
       const request = await Data.findById(req.params.id);
 
       if (!request) {
-        return res.status(404).json({ message: "Request tidak ditemukan" });
+        return res.status(404).json({ message: "Dokumen request tidak ditemukan" });
       }
 
-      // Ubah status request asal menjadi Disetujui
+      // Update status data request mentah
       request.statusProduksi = "Disetujui";
       await request.save();
 
-      // Buat jurnal pengeluaran bahan baku riil di Warehouse RM
+      // Secara otomatis membuat mutasi riil barang keluar dari gudang (Warehouse RM)
       await Data.create({
         barang: request.barang,
         in: 0,
@@ -137,7 +152,7 @@ router.post(
         tanggal: new Date().toISOString()
       });
 
-      res.json({ message: "Approval berhasil" });
+      res.json({ message: "Aksi approval logistik sukses dijalankan" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

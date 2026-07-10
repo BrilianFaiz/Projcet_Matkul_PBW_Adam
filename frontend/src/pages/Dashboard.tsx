@@ -14,27 +14,38 @@ export default function Dashboard() {
   const [systemStatus, setSystemStatus] = useState("checking");
   const [approvedIds, setApprovedIds] = useState<any[]>([]);
 
-  // =========================================================
-  // FETCH DATA GLOBAL
-  // =========================================================
-  const fetchData = async () => {
-    try {
-      const res = await fetch("http://localhost:1337/api/data", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Gagal fetch data");
-      const result = await res.json();
-      setData(result);
-    } catch (err) {
-      console.error("Error fetch:", err);
-    }
-  };
+// =========================================================
+// FETCH DATA GLOBAL & REAL-TIME POLLING (3 DETIK)
+// =========================================================
+const fetchData = async () => {
+  if (!token) return;
+  try {
+    const res = await fetch("http://localhost:1337/api/data", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Gagal fetch data");
+    const result = await res.json();
+    setData(result);
+  } catch (err) {
+    console.error("Error fetch:", err);
+  }
+};
 
   useEffect(() => {
-    if (token) fetchData();
+    if (token) {
+      // Ambil data pertama kali saat halaman di-load
+      fetchData();
+
+      // 🔄 Polling otomatis setiap 3 detik supaya sinkronisasi data real-time
+      const dataInterval = setInterval(() => {
+        fetchData();
+      }, 3000);
+
+      return () => clearInterval(dataInterval);
+    }
   }, [token]);
 
-  // Health Check Server
+  // Health Check Server Berkala
   useEffect(() => {
     const checkStatus = async () => {
       try {
@@ -51,7 +62,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================================================
-  // HANDLER ACTION UNTUK KOMPONEN ANAK
+  // HANDLER AKSI SIMPAN / UPDATE GLOBAL (DATABASE INTEGRATION)
   // =========================================================
   const handleAdd = async (item: any) => {
     try {
@@ -80,12 +91,12 @@ export default function Dashboard() {
         });
         
         if (res.ok) {
-          fetchData();
+          await fetchData(); // Tarik ulang data real-time setelah update qty
         } else {
           console.error("Gagal mengupdate kuantitas stok di database");
         }
       } else {
-        const res = await fetch("http://localhost:1337/api/add", {
+        const res = await fetch("http://localhost:1337/api/data", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -95,7 +106,7 @@ export default function Dashboard() {
         });
         
         if (res.ok) {
-          fetchData();
+          await fetchData(); // Tarik ulang data real-time setelah barang baru masuk
         } else {
           console.error("Gagal menyimpan data baru ke database");
         }
@@ -105,7 +116,81 @@ export default function Dashboard() {
     }
   };
 
-  // Handler Aksi Spesifik Manager
+  // =========================================================
+  // HANDLER AKSI SPESIFIK TIAP DASHBOARD ROLE
+  // =========================================================
+  
+  // Handler Validasi Admin (Bahan Baku)
+  const handleAdminApproveBahan = async (item: any) => {
+    if (!item._id) return;
+    try {
+      const res = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusProduksi: "Disetujui" }),
+      });
+
+      if (res.ok) {
+        setApprovedIds((prev) => [...prev, item._id]);
+        alert(`Validasi Bahan Berhasil!`);
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Gagal memproses validasi bahan:", err);
+    }
+  };
+
+  // Handler Validasi Admin (Hasil Output Produksi)
+  const handleAdminApproveHasil = async (item: any) => {
+    try {
+      if (item.in > 0) {
+        await handleAdd({
+          barang: item.barang,
+          in: item.in,
+          out: 0,
+          stage: "Finish Good",
+          statusProduksi: "Selesai",
+          operatorName: item.operatorName
+        });
+      }
+      if (item.reject > 0) {
+        await handleAdd({
+          barang: `${item.barang} (Cacat Produksi)`,
+          in: 0,
+          out: 0,
+          reject: item.reject,
+          stage: "Proses",
+          statusProduksi: "Selesai",
+          operatorName: item.operatorName
+        });
+      }
+
+      if (item._id) {
+        const resUpdate = await fetch(`http://localhost:1337/api/data/${item._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ statusProduksi: "Selesai" }),
+        });
+
+        if (resUpdate.ok) {
+          setApprovedIds((prev) => [...prev, item._id]);
+        }
+      }
+
+      alert(`Laporan Hasil Produksi Ter-validasi!`);
+      await fetchData();
+    } catch (err) {
+      console.error("Gagal memproses validasi laporan hasil:", err);
+    }
+  };
+
+  // Handler Otorisasi Tingkat Manager
   const handleManagerApprove = async (item: any) => {
     if (!item._id) return;
     try {
@@ -119,7 +204,8 @@ export default function Dashboard() {
       });
       if (res.ok) {
         setApprovedIds((prev) => [...prev, item._id]);
-        fetchData();
+        alert("Batch produksi disetujui resmi oleh Manager!");
+        await fetchData();
       }
     } catch (err) {
       console.error("Manager gagal approve:", err);
@@ -138,14 +224,15 @@ export default function Dashboard() {
         body: JSON.stringify({ statusProduksi: "Ditolak Manager" }),
       });
       if (res.ok) {
-        fetchData();
+        alert("Batch pengajuan ditolak oleh Manager.");
+        await fetchData();
       }
     } catch (err) {
       console.error("Manager gagal reject:", err);
     }
   };
 
-  // Handler Aksi Spesifik Quality Control (QC)
+  // Handler Pengujian Mutu Quality Control (QC)
   const handleQCApprove = async (item: any) => {
     if (!item._id) return;
     try {
@@ -159,7 +246,8 @@ export default function Dashboard() {
       });
       if (res.ok) {
         setApprovedIds((prev) => [...prev, item._id]);
-        fetchData();
+        alert("Batch dinyatakan lolos standar mutu (PASS)!");
+        await fetchData();
       }
     } catch (err) {
       console.error("QC gagal approve:", err);
@@ -178,7 +266,8 @@ export default function Dashboard() {
         body: JSON.stringify({ statusProduksi: "Gagal Standar (Rejected)" }),
       });
       if (res.ok) {
-        fetchData();
+        alert("Batch dibuang ke penampungan material gagal.");
+        await fetchData();
       }
     } catch (err) {
       console.error("QC gagal reject:", err);
@@ -186,7 +275,7 @@ export default function Dashboard() {
   };
 
   // =========================================================
-  // UTILITIES & DATA PIPELINES
+  // UTILITIES & DATA PIPELINES FILTERING
   // =========================================================
   const getTotal = (arr: any[]) =>
     arr.reduce((acc, item) => acc + (Number(item.in || 0) - Number(item.out || 0)), 0);
@@ -199,19 +288,19 @@ export default function Dashboard() {
     });
   };
 
-  // Klasifikasi data berdasarkan tahapan alur logistik
+  // Klasifikasi data pipeline alur logistik
   const warehouseData = data.filter((d) => d.stage === "Warehouse RM");
   const prosesData = data.filter((d) => d.stage === "Proses Produksi" || d.stage === "Proses");
   const finishData = data.filter((d) => d.stage === "Finish Good");
   
-  // Antrean Dinamis untuk Dashboard Tertentu
+  // Antrean khusus dashboard approval operasional
   const pendingBahanRequests = data.filter((d) => d.stage === "Request Bahan" && d.statusProduksi === "Pending");
   const pendingHasilRequests = data.filter((d) => d.stage === "Laporan Produksi" && d.statusProduksi === "Pending");
   const pendingManagerRequests = data.filter((d) => d.statusProduksi === "Pending Admin" || d.statusProduksi === "Pending");
   const pendingQCRequests = data.filter((d) => d.statusProduksi === "Pending Hasil Admin" || d.statusProduksi === "Pending");
 
   // =========================================================
-  // ROUTER SWITCH DASHBOARD BERDASARKAN ROLE
+  // ROUTER SWITCH DASHBOARD BERDASARKAN ROLE USER
   // =========================================================
   const renderRoleDashboard = () => {
     const currentRole = user?.role?.toLowerCase();
@@ -229,8 +318,8 @@ export default function Dashboard() {
             approvedIds={approvedIds}
             getTotal={getTotal}
             formatTanggalTabel={formatTanggalTabel}
-            handleAdminApproveBahan={handleAdminApproveBahan} // Gunakan handler bawaan Anda
-            handleAdminApproveHasil={handleAdminApproveHasil} // Gunakan handler bawaan Anda
+            handleAdminApproveBahan={handleAdminApproveBahan}
+            handleAdminApproveHasil={handleAdminApproveHasil}
             handleAdd={handleAdd}
           />
         );
@@ -244,8 +333,8 @@ export default function Dashboard() {
             finishData={finishData}
             getTotal={getTotal}
             formatTanggalTabel={formatTanggalTabel}
-            handleOperatorSubmitBahan={handleAdd} // Pemetaan aksi form request bahan baku
-            handleOperatorSubmitHasil={handleAdd} // Pemetaan aksi form hasil output produksi
+            handleOperatorSubmitBahan={handleAdd} // Hubungkan form requset bahan ke handleAdd
+            handleOperatorSubmitHasil={handleAdd} // Hubungkan form lapor hasil ke handleAdd
           />
         );
 
@@ -309,31 +398,6 @@ export default function Dashboard() {
     }
   };
 
-  // Handler Placeholder warisan backend untuk Admin Dashboard
-  async function handleAdminApproveBahan(item: any) {
-    if (item._id) {
-      await fetch(`http://localhost:1337/api/data/${item._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ statusProduksi: "Disetujui" }),
-      });
-      setApprovedIds((prev) => [...prev, item._id]);
-    }
-    fetchData();
-  }
-
-  async function handleAdminApproveHasil(item: any) {
-    if (item._id) {
-      await fetch(`http://localhost:1337/api/data/${item._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ statusProduksi: "Selesai" }),
-      });
-      setApprovedIds((prev) => [...prev, item._id]);
-    }
-    fetchData();
-  }
-
   return (
     <div className="wms-root">
       {/* ── HEADER UTAMA ── */}
@@ -356,7 +420,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── EKSEKUSI FUNGSI ROUTER SWITCH ROLE ── */}
+      {/* ── EKSEKUSI ROUTER SWITCH ── */}
       {renderRoleDashboard()}
     </div>
   );
